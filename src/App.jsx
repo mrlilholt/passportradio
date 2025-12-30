@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader } from 'lucide-react';
+import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download } from 'lucide-react';
 import { cities, genres } from './data/cities';
 
 const App = () => {
@@ -18,6 +18,7 @@ const App = () => {
   const [filterGenre, setFilterGenre] = useState(null);
   const [showCityMenu, setShowCityMenu] = useState(false);
   const [showSplash, setShowSplash] = useState(true); // Default to true so it shows on load
+  const [deferredPrompt, setDeferredPrompt] = useState(null); // Stores the install event
 
   // New State for Recents & Teleport
   const [recents, setRecents] = useState(() => JSON.parse(localStorage.getItem('passport_recents')) || []);
@@ -58,6 +59,33 @@ const App = () => {
 
     return () => clearTimeout(timer);
   }, []);
+// Listen for the "Before Install Prompt" event
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  // Handler for the Install Button
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, so clear it
+    setDeferredPrompt(null);
+  };
 
   // 2. Persistence (Favorites)
   useEffect(() => {
@@ -475,9 +503,10 @@ const App = () => {
       <div className="absolute inset-0 bg-gradient-to-t from-passport-dark via-passport-dark/40 to-black/50"></div>
 
       {/* --- HEADER --- */}
+      {/* --- HEADER --- */}
       <header className="relative z-50 p-4 md:p-6 flex justify-between items-center backdrop-blur-md border-b border-white/10 shrink-0">
         
-        {/* CLICKABLE WORDMARK (HOME BUTTON) */}
+        {/* CLICKABLE WORDMARK */}
         <button 
             onClick={() => setActiveTab('discover')} 
             className="flex items-center gap-3 hover:opacity-80 transition active:scale-95"
@@ -485,7 +514,19 @@ const App = () => {
             <img src="/wordmark.png" alt="Passport Radio" className="h-6 md:h-8 w-auto drop-shadow-lg" />
         </button>
         
-        <div className="flex gap-2 md:gap-4">
+        <div className="flex gap-2 md:gap-4 items-center">
+           
+           {/* INSTALL BUTTON (Only shows if install is available) */}
+           {deferredPrompt && (
+               <button 
+                 onClick={handleInstallClick}
+                 className="animate-pulse bg-white/10 text-passport-teal p-2 rounded-full border border-passport-teal/50 hover:bg-passport-teal hover:text-slate-900 transition mr-1"
+                 title="Install App"
+               >
+                 <Download size={20} />
+               </button>
+           )}
+
            {/* City Dropdown Container */}
            <div className="relative">
              <button onClick={() => setShowCityMenu(!showCityMenu)} className="flex items-center gap-1 md:gap-2 bg-white/10 px-3 py-2 rounded-full hover:bg-white/20 transition border border-white/20 backdrop-blur-md text-sm md:text-base">
@@ -495,16 +536,11 @@ const App = () => {
              
              {showCityMenu && (
                  <div className="absolute top-12 right-0 w-64 max-h-[60vh] overflow-y-auto bg-slate-900/95 border border-white/10 rounded-xl shadow-2xl p-2 z-50 custom-scrollbar">
-                    {/* 1. Get Unique Countries & Sort Them */}
                     {[...new Set(cities.map(c => c.country))].sort().map(country => (
                         <div key={country} className="mb-2">
-                            
-                            {/* Country Header (Sticky) */}
                             <div className="px-3 py-1 text-[10px] font-bold text-passport-teal uppercase tracking-widest opacity-70 sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10 border-b border-white/5 mb-1">
                                 {country}
                             </div>
-                            
-                            {/* Cities in this Country */}
                             {cities
                                 .filter(c => c.country === country)
                                 .sort((a, b) => a.name.localeCompare(b.name))
