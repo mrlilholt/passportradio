@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle } from 'lucide-react';import { cities, genres } from './data/cities';
+import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle, Clock, Home, X, Tent, Castle, FlagTriangleRight, Stamp } from 'lucide-react';import { cities, genres } from './data/cities';
 
 const App = () => {
   // --- STATE ---
@@ -40,7 +40,10 @@ const App = () => {
       const savedScore = localStorage.getItem('passport_highscore');
       return savedScore ? parseInt(savedScore, 10) : 0;
   });  // --- EFFECTS ---
-
+// --- TRAVEL LOGS (Time Tracking) ---
+  const [travelLogs, setTravelLogs] = useState(() => {
+      return JSON.parse(localStorage.getItem('passport_travel_logs')) || {};
+  });
   // 1. Find a Working API Server on Startup
   useEffect(() => {
     const resolveServer = async () => {
@@ -57,6 +60,34 @@ const App = () => {
     };
     resolveServer();
   }, []);
+// --- TRACK LISTENING TIME ---
+  useEffect(() => {
+    let interval;
+    if (isPlaying && currentStation) {
+        interval = setInterval(() => {
+            setTravelLogs(prev => {
+                const country = currentStation.country || "International";
+                // Get ISO code (default to 'xx' if missing)
+                const iso = currentStation.countrycode || "xx"; 
+                
+                // Handle legacy data (if you already have logs saved as just numbers)
+                const previousData = prev[country];
+                const currentSeconds = (typeof previousData === 'number') ? previousData : (previousData?.time || 0);
+                
+                // Save both Time AND ISO code
+                const newEntry = { 
+                    time: currentSeconds + 1, 
+                    iso: iso 
+                };
+                
+                const newLogs = { ...prev, [country]: newEntry };
+                localStorage.setItem('passport_travel_logs', JSON.stringify(newLogs));
+                return newLogs;
+            });
+        }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, currentStation]);
 
 // Handle Splash Screen Timer
   useEffect(() => {
@@ -352,6 +383,7 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
           userCorrect: false
       }));
   };
+  
   // --- SUB-COMPONENTS ---
 
   const SearchView = () => {
@@ -656,79 +688,218 @@ const GameView = () => (
         </div>
     </div>
   );
+const TravelStats = () => {
+      // Convert logs object to array and sort by time (highest first)
+      const stats = Object.entries(travelLogs).sort(([,a], [,b]) => b - a);
 
+      if (stats.length === 0) return null;
+
+      // Helper to format seconds into "1h 20m"
+      const formatTime = (seconds) => {
+          const h = Math.floor(seconds / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          if (h > 0) return `${h}h ${m}m`;
+          return `${m}m`; // Just show minutes if under an hour
+      };
+
+      // Helper to determine Rank/Badge
+      const getRank = (seconds) => {
+          if (seconds > 86400) return { title: "Citizen", color: "text-yellow-400", icon: "👑" }; // > 24 hours
+          if (seconds > 3600) return { title: "Resident", color: "text-passport-teal", icon: "🏠" }; // > 1 hour
+          return { title: "Tourist", color: "text-white/60", icon: "📷" }; // < 1 hour
+      };
+
+      return (
+          <div className="mb-6 animate-fade-in">
+              <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Clock size={14} /> Time Spent in Country
+              </h3>
+              
+              <div className="flex gap-3 overflow-x-auto pb-4 snap-x">
+                  {stats.map(([country, seconds]) => {
+                      const rank = getRank(seconds);
+                      return (
+                          <div key={country} className="snap-start shrink-0 w-32 bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col items-center justify-center text-center">
+                              <div className="text-2xl mb-1">{rank.icon}</div>
+                              <div className="font-bold text-sm text-white truncate w-full">{country}</div>
+                              <div className={`text-[10px] uppercase font-bold tracking-wider mb-2 ${rank.color}`}>
+                                  {rank.title}
+                              </div>
+                              <div className="bg-black/30 rounded-full px-2 py-1 text-xs font-mono text-white/70">
+                                  {formatTime(seconds)}
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      );
+  };
+  const PassportBook = ({ onClose }) => {
+      // Helper to safely get time from mixed data (numbers or objects)
+      const getTime = (entry) => (typeof entry === 'number' ? entry : entry.time);
+      
+      // Sort entries by time
+      const stats = Object.entries(travelLogs).sort(([,a], [,b]) => getTime(b) - getTime(a));
+
+      const formatTime = (seconds) => {
+          const h = Math.floor(seconds / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          if (h > 0) return `${h}h ${m}m`;
+          return `${m}m`;
+      };
+
+      const getRank = (seconds) => {
+          if (seconds > 86400) return { title: "Citizen", color: "text-yellow-400", border: "border-yellow-400/50", icon: <Castle size={16} /> };
+          if (seconds > 3600) return { title: "Resident", color: "text-passport-teal", border: "border-teal-400/50", icon: <Home size={16} /> };
+          return { title: "Tourist", color: "text-white/60", border: "border-white/20", icon: <Tent size={16} /> };
+      };
+
+      return (
+          <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-xl flex flex-col animate-fade-in">
+              <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                      <Book className="text-passport-teal" /> My Stamp Book
+                  </h2>
+                  <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition">
+                      <X size={20} />
+                  </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                  {stats.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 opacity-50 text-center">
+                          <Stamp size={64} className="mb-4 text-white/20" />
+                          <p>No stamps yet.</p>
+                      </div>
+                  ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                          {stats.map(([country, data]) => {
+                              const seconds = getTime(data);
+                              const iso = (typeof data === 'object' && data.iso) ? data.iso.toLowerCase() : 'xx';
+                              const rank = getRank(seconds);
+
+                              return (
+                                  <div key={country} className={`relative p-3 rounded-lg border-2 border-dashed ${rank.border} bg-white/5 flex flex-col items-center text-center aspect-square group hover:bg-white/10 transition overflow-hidden`}>
+                                      
+                                      {/* BACKGROUND FLAG (Faded) */}
+                                      {iso !== 'xx' && (
+                                          <img 
+                                              src={`https://flagcdn.com/w160/${iso}.png`}
+                                              alt={country}
+                                              className="absolute inset-0 w-full h-full object-cover opacity-10 grayscale group-hover:grayscale-0 group-hover:opacity-20 transition duration-500"
+                                          />
+                                      )}
+
+                                      {/* Content sits on top */}
+                                      <div className="relative z-10 flex flex-col items-center h-full justify-between py-2">
+                                          {/* Rank Badge */}
+                                          <div className={`p-2 rounded-full bg-slate-900/80 backdrop-blur border border-white/10 ${rank.color} shadow-lg`}>
+                                              {rank.icon}
+                                          </div>
+                                          
+                                          <div>
+                                              <div className="font-bold text-sm text-white leading-tight mb-1 line-clamp-2 drop-shadow-md">
+                                                  {country}
+                                              </div>
+                                              <div className="text-[10px] text-white/70 uppercase tracking-wider font-bold">
+                                                  {rank.title}
+                                              </div>
+                                          </div>
+
+                                          <div className="bg-black/60 px-2 py-1 rounded-md text-xs font-mono text-white/90 border border-white/5">
+                                              {formatTime(seconds)}
+                                          </div>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  };
  const FavoritesView = () => {
-    // 1. Group favorites by Country
+    const [showStampBook, setShowStampBook] = useState(false); // State for the modal
+
+    // Grouping Logic
     const groupedFavorites = favorites.reduce((groups, station) => {
         const country = station.country || "International";
-        if (!groups[country]) {
-            groups[country] = [];
-        }
+        if (!groups[country]) groups[country] = [];
         groups[country].push(station);
         return groups;
     }, {});
-
-    // 2. Sort countries alphabetically
     const sortedCountries = Object.keys(groupedFavorites).sort();
 
     return (
-        <div className="flex-1 w-full h-full overflow-y-auto pb-24 p-4 animate-fade-in">
-            {/* Header */}
-            <div className="mb-6 sticky top-0 bg-passport-dark/95 backdrop-blur z-10 py-2 border-b border-white/10">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Book className="text-passport-teal" /> My Passport
-                    <span className="text-xs font-normal text-white/50 ml-auto bg-white/10 px-2 py-1 rounded-full">
-                        {favorites.length} Stamps
-                    </span>
-                </h2>
-            </div>
+        <div className="flex-1 w-full h-full relative">
+            {/* --- CONDITIONAL RENDER: STAMP BOOK MODAL --- */}
+            {showStampBook && <PassportBook onClose={() => setShowStampBook(false)} />}
 
-            {/* Empty State */}
-            {favorites.length === 0 ? (
-                <div className="text-center opacity-50 mt-20 p-6 border border-dashed border-white/20 rounded-2xl">
-                    <Heart size={48} className="mx-auto mb-4 text-white/20" />
-                    <p className="text-sm">No stamps collected yet.</p>
-                    <button onClick={() => setActiveTab('discover')} className="text-passport-teal text-sm mt-2 font-bold hover:underline">
-                        Go Explore
+            <div className="w-full h-full overflow-y-auto pb-24 p-4 animate-fade-in">
+                {/* Header with "Open Book" Button */}
+                <div className="mb-6 sticky top-0 bg-passport-dark/95 backdrop-blur z-10 py-2 border-b border-white/10 flex justify-between items-center">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                        <Book className="text-passport-teal" /> My Passport
+                    </h2>
+                    
+                    {/* NEW BUTTON: Moves the cards away from the music list */}
+                    <button 
+                        onClick={() => setShowStampBook(true)}
+                        className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition"
+                    >
+                        <Stamp size={14} className="text-passport-teal" />
+                        View Stamps
                     </button>
                 </div>
-            ) : (
-                /* Grouped Lists */
-                <div className="space-y-8">
-                    {sortedCountries.map((country) => (
-                        <div key={country} className="animate-fade-in">
-                            <h3 className="text-xs font-bold text-passport-teal uppercase tracking-widest mb-3 flex items-center gap-2 opacity-80 sticky top-14 bg-passport-dark/90 p-1 rounded-md w-fit">
-                                <Globe size={14} /> {country}
-                            </h3>
-                            
-                            <div className="grid grid-cols-1 gap-2">
-                                {groupedFavorites[country].map((station) => (
-                                    <div 
-                                        key={station.stationuuid} 
-                                        onClick={() => playStationWrapper(station)} 
-                                        className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition active:scale-95"
-                                    >
-                                        <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                                            <img src={station.favicon} onError={(e) => e.target.style.display='none'} className="w-full h-full object-contain" alt="icon"/>
-                                            <Radio size={18} className="text-white/20 absolute" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-bold text-sm truncate text-white">{station.name}</h4>
-                                            <p className="text-xs text-white/50 truncate">{station.state || station.tags || 'Unknown Region'}</p>
-                                        </div>
-                                        <button 
-                                            onClick={(e) => removeFavorite(e, station.stationuuid)} 
-                                            className="p-2 text-white/30 hover:text-red-500 hover:bg-white/10 rounded-full transition z-20"
+
+                {/* Favorites List (Music Only) */}
+                {favorites.length === 0 ? (
+                    <div className="text-center opacity-50 mt-20 p-6 border border-dashed border-white/20 rounded-2xl">
+                        <Heart size={48} className="mx-auto mb-4 text-white/20" />
+                        <p className="text-sm">No stations favorited.</p>
+                        <button onClick={() => setActiveTab('discover')} className="text-passport-teal text-sm mt-2 font-bold hover:underline">
+                            Go Explore
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-8">
+                        {sortedCountries.map((country) => (
+                            <div key={country} className="animate-fade-in">
+                                <h3 className="text-xs font-bold text-passport-teal uppercase tracking-widest mb-3 flex items-center gap-2 opacity-80 sticky top-14 bg-passport-dark/90 p-1 rounded-md w-fit">
+                                    <Globe size={14} /> {country}
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 gap-2">
+                                    {groupedFavorites[country].map((station) => (
+                                        <div 
+                                            key={station.stationuuid} 
+                                            onClick={() => playStationWrapper(station)} 
+                                            className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition active:scale-95"
                                         >
-                                            <VolumeX size={16} />
-                                        </button>
-                                    </div>
-                                ))}
+                                            <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+                                                <img src={station.favicon} onError={(e) => e.target.style.display='none'} className="w-full h-full object-contain" alt="icon"/>
+                                                <Radio size={18} className="text-white/20 absolute" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-sm truncate text-white">{station.name}</h4>
+                                                <p className="text-xs text-white/50 truncate">{station.state || station.tags || 'Unknown Region'}</p>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => removeFavorite(e, station.stationuuid)} 
+                                                className="p-2 text-white/30 hover:text-red-500 hover:bg-white/10 rounded-full transition z-20"
+                                            >
+                                                <VolumeX size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
   };  
