@@ -131,8 +131,7 @@ const App = () => {
       const response = await fetch(`${apiServer}/json/stations/search?${params}`);
       let data = await response.json();
 
-      let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith('http'));
-      
+let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith('https'));      
       validStations.sort((a, b) => {
           const cityTerm = currentCity.name.toLowerCase();
           const aHasCity = a.name.toLowerCase().includes(cityTerm) || (a.tags && a.tags.toLowerCase().includes(cityTerm));
