@@ -1,0 +1,101 @@
+// ./data/cities.js
+
+export const cities = [
+  // --- ASIA ---
+  { name: "Tashkent", country: "Uzbekistan", iso: "UZ", lat: 41.29, lng: 69.24 },
+  { name: "Tokyo", country: "Japan", iso: "JP", lat: 35.67, lng: 139.65 },
+  { name: "Seoul", country: "South Korea", iso: "KR", lat: 37.56, lng: 126.97 },
+  { name: "Mumbai", country: "India", iso: "IN", lat: 19.07, lng: 72.87 },
+  { name: "New Delhi", country: "India", iso: "IN", lat: 28.61, lng: 77.20 },
+  { name: "Shanghai", country: "China", iso: "CN", lat: 31.23, lng: 121.47 },
+  { name: "Beijing", country: "China", iso: "CN", lat: 39.90, lng: 116.40 },
+  { name: "Hong Kong", country: "China", iso: "HK", lat: 22.31, lng: 114.16 },
+  { name: "Bangkok", country: "Thailand", iso: "TH", lat: 13.75, lng: 100.50 },
+  { name: "Jakarta", country: "Indonesia", iso: "ID", lat: -6.20, lng: 106.84 },
+  { name: "Bali", country: "Indonesia", iso: "ID", lat: -8.40, lng: 115.18 },
+  { name: "Hanoi", country: "Vietnam", iso: "VN", lat: 21.02, lng: 105.83 },
+  { name: "Ho Chi Minh City", country: "Vietnam", iso: "VN", lat: 10.82, lng: 106.62 },
+  { name: "Singapore", country: "Singapore", iso: "SG", lat: 1.35, lng: 103.81 },
+  { name: "Manila", country: "Philippines", iso: "PH", lat: 14.59, lng: 120.98 },
+  { name: "Taipei", country: "Taiwan", iso: "TW", lat: 25.03, lng: 121.56 },
+  { name: "Kuala Lumpur", country: "Malaysia", iso: "MY", lat: 3.13, lng: 101.68 },
+
+  // --- MIDDLE EAST ---
+  { name: "Dubai", country: "UAE", iso: "AE", lat: 25.20, lng: 55.27 },
+  { name: "Istanbul", country: "Turkey", iso: "TR", lat: 41.00, lng: 28.97 },
+  { name: "Tel Aviv", country: "Israel", iso: "IL", lat: 32.08, lng: 34.78 },
+  { name: "Tehran", country: "Iran", iso: "IR", lat: 35.68, lng: 51.38 },
+  { name: "Beirut", country: "Lebanon", iso: "LB", lat: 33.89, lng: 35.50 },
+
+  // --- EUROPE ---
+  { name: "Paris", country: "France", iso: "FR", lat: 48.85, lng: 2.35 },
+  { name: "Marseille", country: "France", iso: "FR", lat: 43.29, lng: 5.36 },
+  { name: "Rome", country: "Italy", iso: "IT", lat: 41.90, lng: 12.49 },
+  { name: "Naples", country: "Italy", iso: "IT", lat: 40.85, lng: 14.26 },
+  { name: "Milan", country: "Italy", iso: "IT", lat: 45.46, lng: 9.19 },
+  { name: "Berlin", country: "Germany", iso: "DE", lat: 52.52, lng: 13.40 },
+  { name: "Munich", country: "Germany", iso: "DE", lat: 48.13, lng: 11.58 },
+  { name: "London", country: "UK", iso: "GB", lat: 51.50, lng: -0.12 },
+  { name: "Manchester", country: "UK", iso: "GB", lat: 53.48, lng: -2.24 },
+  { name: "Dublin", country: "Ireland", iso: "IE", lat: 53.34, lng: -6.26 },
+  { name: "Madrid", country: "Spain", iso: "ES", lat: 40.41, lng: -3.70 },
+  { name: "Barcelona", country: "Spain", iso: "ES", lat: 41.38, lng: 2.17 },
+  { name: "Lisbon", country: "Portugal", iso: "PT", lat: 38.72, lng: -9.13 },
+  { name: "Amsterdam", country: "Netherlands", iso: "NL", lat: 52.36, lng: 4.90 },
+  { name: "Vienna", country: "Austria", iso: "AT", lat: 48.20, lng: 16.37 },
+  { name: "Prague", country: "Czechia", iso: "CZ", lat: 50.07, lng: 14.43 },
+  { name: "Budapest", country: "Hungary", iso: "HU", lat: 47.49, lng: 19.04 },
+  { name: "Athens", country: "Greece", iso: "GR", lat: 37.98, lng: 23.72 },
+  { name: "Stockholm", country: "Sweden", iso: "SE", lat: 59.32, lng: 18.06 },
+  { name: "Copenhagen", country: "Denmark", iso: "DK", lat: 55.67, lng: 12.56 },
+  { name: "Kyiv", country: "Ukraine", iso: "UA", lat: 50.45, lng: 30.52 },
+  { name: "Reykjavik", country: "Iceland", iso: "IS", lat: 64.14, lng: -21.94 },
+
+  // --- AMERICAS ---
+  { name: "New York", country: "USA", iso: "US", lat: 40.71, lng: -74.00 },
+  { name: "Los Angeles", country: "USA", iso: "US", lat: 34.05, lng: -118.24 },
+  { name: "Chicago", country: "USA", iso: "US", lat: 41.87, lng: -87.62 },
+  { name: "Miami", country: "USA", iso: "US", lat: 25.76, lng: -80.19 },
+  { name: "New Orleans", country: "USA", iso: "US", lat: 29.95, lng: -90.07 },
+  { name: "Toronto", country: "Canada", iso: "CA", lat: 43.65, lng: -79.38 },
+  { name: "Vancouver", country: "Canada", iso: "CA", lat: 49.28, lng: -123.12 },
+  { name: "Mexico City", country: "Mexico", iso: "MX", lat: 19.43, lng: -99.13 },
+  { name: "Havana", country: "Cuba", iso: "CU", lat: 23.11, lng: -82.36 },
+  { name: "Kingston", country: "Jamaica", iso: "JM", lat: 18.01, lng: -76.80 },
+  { name: "Bogota", country: "Colombia", iso: "CO", lat: 4.71, lng: -74.07 },
+  { name: "Medellin", country: "Colombia", iso: "CO", lat: 6.24, lng: -75.56 },
+  { name: "Rio de Janeiro", country: "Brazil", iso: "BR", lat: -22.90, lng: -43.17 },
+  { name: "Sao Paulo", country: "Brazil", iso: "BR", lat: -23.55, lng: -46.63 },
+  { name: "Buenos Aires", country: "Argentina", iso: "AR", lat: -34.60, lng: -58.38 },
+  { name: "Santiago", country: "Chile", iso: "CL", lat: -33.44, lng: -70.66 },
+  { name: "Lima", country: "Peru", iso: "PE", lat: -12.04, lng: -77.04 },
+
+  // --- AFRICA ---
+  { name: "Cairo", country: "Egypt", iso: "EG", lat: 30.04, lng: 31.23 },
+  { name: "Lagos", country: "Nigeria", iso: "NG", lat: 6.52, lng: 3.37 },
+  { name: "Cape Town", country: "South Africa", iso: "ZA", lat: -33.92, lng: 18.42 },
+  { name: "Johannesburg", country: "South Africa", iso: "ZA", lat: -26.20, lng: 28.04 },
+  { name: "Nairobi", country: "Kenya", iso: "KE", lat: -1.29, lng: 36.82 },
+  { name: "Casablanca", country: "Morocco", iso: "MA", lat: 33.57, lng: -7.58 },
+  { name: "Marrakech", country: "Morocco", iso: "MA", lat: 31.62, lng: -7.98 },
+  { name: "Accra", country: "Ghana", iso: "GH", lat: 5.60, lng: -0.18 },
+  { name: "Addis Ababa", country: "Ethiopia", iso: "ET", lat: 9.03, lng: 38.74 },
+
+  // --- OCEANIA ---
+  { name: "Sydney", country: "Australia", iso: "AU", lat: -33.86, lng: 151.20 },
+  { name: "Melbourne", country: "Australia", iso: "AU", lat: -37.81, lng: 144.96 },
+  { name: "Auckland", country: "New Zealand", iso: "NZ", lat: -36.84, lng: 174.76 },
+];
+
+export const genres = [
+  { id: 'jazz', label: 'Jazz' },
+  { id: 'lofi', label: 'Lo-Fi' },
+  { id: 'pop', label: 'Pop' },
+  { id: 'rock', label: 'Rock' },
+  { id: 'classical', label: 'Classical' },
+  { id: 'electronic', label: 'Electronic' },
+  { id: 'hip hop', label: 'Hip Hop' },
+  { id: 'folk', label: 'Folk' },
+  { id: 'world', label: 'World' },
+  { id: 'news', label: 'News' }
+];
