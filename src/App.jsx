@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download } from 'lucide-react';
-import { cities, genres } from './data/cities';
+import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle } from 'lucide-react';import { cities, genres } from './data/cities';
 
 const App = () => {
   // --- STATE ---
@@ -32,7 +31,15 @@ const App = () => {
 
   const audioRef = useRef(null);
 
-  // --- EFFECTS ---
+// --- GAME STATE ---
+  const [gameScore, setGameScore] = useState(0);
+  const [gameRoundData, setGameRoundData] = useState(null); 
+  const [isGameLoading, setIsGameLoading] = useState(false);
+// Initialize from Local Storage (or default to 0)
+  const [highScore, setHighScore] = useState(() => {
+      const savedScore = localStorage.getItem('passport_highscore');
+      return savedScore ? parseInt(savedScore, 10) : 0;
+  });  // --- EFFECTS ---
 
   // 1. Find a Working API Server on Startup
   useEffect(() => {
@@ -253,6 +260,98 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
     trackMouse: true
   });
 
+  const startNewGameRound = async () => {
+    // 1. Use your existing apiServer (no need to find a new one!)
+    if (!apiServer) return; 
+
+    setIsGameLoading(true);
+    setGameRoundData(null);
+
+    try {
+      // 2. THE NEW TRICK: Pick a random number between 0 and 500
+      // We will ask for the "Top 500" stations but grab just ONE random specific one.
+      const randomOffset = Math.floor(Math.random() * 500);
+
+      // 3. Fetch with 'offset' (Lightning fast, no server crashes)
+      const res = await fetch(`${apiServer}/json/stations/search?limit=1&offset=${randomOffset}&order=clickcount&hidebroken=true&https=true`);
+      const data = await res.json();
+      
+      if (data && data.length > 0) {
+        const secretStation = data[0];
+        
+        // Play the audio
+        setCurrentStation(secretStation);
+        setStations([secretStation]); 
+        setIsPlaying(true);
+        // Hide location in the header
+        setCurrentCity({ name: "???", country: "Guess the Country", iso: "XX" });
+
+        // Generate Options (Correct Answer + 3 Wrong ones)
+        const allCountries = [...new Set(cities.map(c => c.country))];
+        const correctCountry = secretStation.country || "Unknown";
+        
+        const distractors = allCountries
+            .filter(c => c !== correctCountry)
+            .sort(() => 0.5 - Math.random()) // Shuffle
+            .slice(0, 3); // Take 3
+
+        const options = [...distractors, correctCountry].sort(() => 0.5 - Math.random());
+
+        setGameRoundData({
+            station: secretStation,
+            options: options,
+            correctAnswer: correctCountry,
+            hasGuessed: false,
+            userCorrect: false
+        });
+      }
+    } catch (e) {
+      console.error("Game Error:", e);
+      // If it fails, just try again automatically once
+      setTimeout(startNewGameRound, 1000);
+    } finally {
+        setIsGameLoading(false);
+    }
+  };
+  // --- GAME HANDLERS ---
+  const handleGameGuess = (selectedCountry) => {
+    if (gameRoundData.hasGuessed) return; 
+
+    const isCorrect = selectedCountry === gameRoundData.correctAnswer;
+    
+    setGameScore(prev => {
+        if (isCorrect) {
+            // Correct: +1 Point
+            const newScore = prev + 1;
+            
+            // Check for new High Score
+            if (newScore > highScore) {
+                setHighScore(newScore);
+                localStorage.setItem('passport_highscore', newScore);
+            }
+            return newScore;
+        } else {
+            // Wrong: -1 Point (Floor at 0 so we don't go negative)
+            return Math.max(0, prev - 1);
+        }
+    });
+
+    setGameRoundData(prev => ({
+        ...prev,
+        hasGuessed: true,
+        userCorrect: isCorrect
+    }));
+  };
+
+  const handleGameSkip = () => {
+      if (gameRoundData.hasGuessed) return;
+      // "Skip" counts as a wrong guess (no points), but reveals the answer
+      setGameRoundData(prev => ({
+          ...prev,
+          hasGuessed: true,
+          userCorrect: false
+      }));
+  };
   // --- SUB-COMPONENTS ---
 
   const SearchView = () => {
@@ -286,6 +385,7 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
         setFilterGenre(null);
     };
 
+    
     return (
         <div className="flex flex-col h-full p-4 w-full max-w-md mx-auto pt-8">
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
@@ -320,7 +420,120 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
         </div>
     );
   };
+const GameView = () => (
+    <div className="p-6 flex flex-col items-center h-full animate-fade-in pb-24 overflow-y-auto">
+        {/* Score Board */}
+        <div className="w-full flex justify-between items-center mb-6 bg-white/5 p-4 rounded-2xl border border-white/10 shrink-0">
+            <div className="flex items-center gap-3">
+                <div className="bg-passport-teal text-slate-900 p-2 rounded-lg">
+                    <Trophy size={24} />
+                </div>
+                <div>
+                    <h3 className="font-bold text-lg leading-none">Score: {gameScore}</h3>
+                    <p className="text-xs text-white/50 uppercase tracking-widest mt-1">Session Best: <span className="text-passport-teal font-bold">{highScore}</span></p>
+                </div>
+            </div>
+            {/* Visual indicator of high score */}
+            {gameScore > 0 && gameScore >= highScore && (
+                <div className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded-full border border-yellow-500/50 animate-pulse">
+                    NEW RECORD!
+                </div>
+            )}
+        </div>
 
+        {/* Game Area */}
+        <div className="flex-1 w-full max-w-sm flex flex-col justify-center items-center">
+            {!gameRoundData && !isGameLoading && (
+                <div className="text-center">
+                    <Globe size={64} className="mx-auto text-passport-teal mb-4 animate-pulse" />
+                    <h2 className="text-2xl font-bold mb-2">Ready to Travel?</h2>
+                    <p className="text-white/60 mb-6">Listen to a random radio station and guess where it is broadcasting from.</p>
+                    <button 
+                        onClick={startNewGameRound}
+                        className="bg-white text-passport-dark font-bold px-8 py-3 rounded-full text-lg shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition active:scale-95"
+                    >
+                        Start Game
+                    </button>
+                </div>
+            )}
+
+            {isGameLoading && (
+                <div className="flex flex-col items-center animate-pulse">
+                    <Loader className="animate-spin mb-4 text-passport-teal" size={48} />
+                    <p className="text-sm font-bold uppercase tracking-widest">Tuning in...</p>
+                </div>
+            )}
+
+            {gameRoundData && (
+                <div className="w-full space-y-4 animate-fade-in">
+                    {/* The "Hidden" Radio */}
+                    <div className="relative w-32 h-32 mx-auto bg-black/50 rounded-full border-4 border-white/10 flex items-center justify-center mb-6 shadow-xl">
+                        {gameRoundData.hasGuessed ? (
+                            <img src={gameRoundData.station.favicon} onError={(e)=>e.target.style.display='none'} className="w-full h-full object-cover rounded-full opacity-80" />
+                        ) : (
+                            <div className="animate-pulse">
+                                <Radio size={48} className="text-white/50" />
+                            </div>
+                        )}
+                        {/* Status Icon */}
+                        {gameRoundData.hasGuessed && (
+                             <div className={`absolute -bottom-2 -right-2 p-2 rounded-full border-2 border-white ${gameRoundData.userCorrect ? 'bg-green-500' : 'bg-red-500'}`}>
+                                 {gameRoundData.userCorrect ? <Trophy size={20} className="text-white"/> : <AlertCircle size={20} className="text-white"/>}
+                             </div>
+                        )}
+                    </div>
+
+                    <h3 className="text-center text-xl font-bold mb-4">
+                        {gameRoundData.hasGuessed 
+                            ? (gameRoundData.userCorrect ? "Correct! +1 Point" : `Nope! It was ${gameRoundData.correctAnswer}`) 
+                            : "Where is this station?"}
+                    </h3>
+
+                    {/* Options Grid */}
+                    <div className="grid grid-cols-1 gap-3">
+                        {gameRoundData.options.map((country, idx) => {
+                            let btnClass = "bg-white/10 hover:bg-white/20 border-white/10";
+                            if (gameRoundData.hasGuessed) {
+                                if (country === gameRoundData.correctAnswer) btnClass = "bg-green-500 text-white border-green-500";
+                                else if (country !== gameRoundData.correctAnswer && !gameRoundData.userCorrect) btnClass = "opacity-50 bg-red-500/20"; 
+                            }
+                            return (
+                                <button 
+                                    key={idx}
+                                    disabled={gameRoundData.hasGuessed}
+                                    onClick={() => handleGameGuess(country)}
+                                    className={`p-4 rounded-xl border font-bold text-left transition-all ${btnClass}`}
+                                >
+                                    {country}
+                                </button>
+                            )
+                        })}
+                    </div>
+                    
+                    {/* SKIP BUTTON (Only shows while guessing) */}
+                    {!gameRoundData.hasGuessed && (
+                        <button 
+                            onClick={handleGameSkip}
+                            className="w-full mt-2 py-3 text-white/40 hover:text-white text-sm font-bold uppercase tracking-widest transition"
+                        >
+                            Skip / Give Up
+                        </button>
+                    )}
+
+                    {/* NEXT ROUND BUTTON (Only shows after guess/skip) */}
+                    {gameRoundData.hasGuessed && (
+                        <button 
+                            onClick={startNewGameRound}
+                            className="w-full mt-6 bg-white text-passport-dark font-bold py-3 rounded-xl hover:scale-105 transition shadow-lg"
+                        >
+                            Next Round →
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    </div>
+  );
   const PlayerView = () => (
       <div className="w-full flex flex-col h-full px-4 overflow-hidden relative">
         
@@ -637,9 +850,10 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
         ) : (
             <>
                 {activeTab === 'discover' && <PlayerView />}
-                {activeTab === 'search' && <SearchView />}
-                {activeTab === 'favorites' && <FavoritesView />}
-            </>
+{activeTab === 'search' && <SearchView />}
+{activeTab === 'game' && <GameView />}  {/* <--- ADD THIS */}
+{activeTab === 'favorites' && <FavoritesView />}
+</>
         )}
       </main>
 
@@ -652,6 +866,9 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
             <button onClick={() => setActiveTab('search')} className={`flex flex-col items-center p-2 transition ${activeTab === 'search' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}>
                 <Search size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Search</span>
             </button>
+            <button onClick={() => setActiveTab('game')} className={`flex flex-col items-center p-2 transition ${activeTab === 'game' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}>
+    <Trophy size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Game</span>
+</button>
             <button onClick={() => setActiveTab('favorites')} className={`flex flex-col items-center p-2 transition ${activeTab === 'favorites' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}>
                 <Book size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Passport</span>
             </button>
