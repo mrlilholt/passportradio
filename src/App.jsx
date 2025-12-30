@@ -19,7 +19,7 @@ const App = () => {
   const [showCityMenu, setShowCityMenu] = useState(false);
   const [showSplash, setShowSplash] = useState(true); // Default to true so it shows on load
   const [deferredPrompt, setDeferredPrompt] = useState(null); // Stores the install event
-
+  const [favSearchTerm, setFavSearchTerm] = useState("");
   // New State for Recents & Teleport
   const [recents, setRecents] = useState(() => JSON.parse(localStorage.getItem('passport_recents')) || []);
   const [isTeleporting, setIsTeleporting] = useState(false);
@@ -92,6 +92,24 @@ const App = () => {
     localStorage.setItem('passport_favs', JSON.stringify(favorites));
   }, [favorites]);
 
+  const playRandomFavorite = () => {
+    if (favorites.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * favorites.length);
+    const randomStation = favorites[randomIndex];
+    
+    // FIX: Update the location context so the UI matches the station
+    setCurrentCity({
+        name: randomStation.state || randomStation.country || "Passport Selection",
+        country: randomStation.country || "Saved Station",
+        iso: randomStation.countrycode || "US"
+    });
+    
+    // Play it
+    setCurrentStation(randomStation);
+    setStations([randomStation]); 
+    setIsPlaying(true);
+  };
+  
   // 3. Persistence (Recents)
   useEffect(() => {
     localStorage.setItem('passport_recents', JSON.stringify(recents));
@@ -426,63 +444,106 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
     </div>
   );
 
-  const FavoritesView = () => {
-    const playStation = (station) => {
+ const FavoritesView = () => {
+    // 1. Filter logic for the search bar
+    const filteredFavorites = favorites.filter(station => 
+      station.name.toLowerCase().includes(favSearchTerm.toLowerCase()) || 
+      (station.country && station.country.toLowerCase().includes(favSearchTerm.toLowerCase()))
+    );
+
+    // 2. Play function (Keeps you on this tab so you can keep browsing)
+    // Inside FavoritesView...
+    
+    const playStationWrapper = (station) => {
+        // FIX: Update the location context here too
+        setCurrentCity({
+            name: station.state || station.country || "Passport Selection",
+            country: station.country || "Saved Station",
+            iso: station.countrycode || "US"
+        });
+
         setCurrentStation(station);
-        setStations([station]);
-        setActiveTab('discover');
+        setStations([station]); 
         setIsPlaying(true);
     };
 
+    // 3. Remove function (Matches your previous logic)
     const removeFavorite = (e, uuid) => {
         e.stopPropagation();
         setFavorites(favorites.filter(f => f.stationuuid !== uuid));
     };
 
-    const StationList = ({ items, canDelete }) => (
-        <div className="space-y-3">
-            {items.map((station) => (
-                <div key={station.stationuuid} onClick={() => playStation(station)} className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition">
-                    <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        <img src={station.favicon} onError={(e) => e.target.style.display='none'} className="w-full h-full object-contain" alt="icon"/>
-                        <Radio size={18} className="text-white/20 absolute" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-sm truncate text-white">{station.name}</h4>
-                        <p className="text-xs text-white/50 truncate">{station.tags || 'Unknown Genre'}</p>
-                    </div>
-                    {canDelete && (
-                         <button onClick={(e) => removeFavorite(e, station.stationuuid)} className="p-2 text-white/30 hover:text-red-500 hover:bg-white/10 rounded-full transition z-20"><VolumeX size={16} /></button>
-                    )}
-                </div>
-            ))}
-        </div>
-    );
-
     return (
-        <div className="flex flex-col h-full p-4 w-full max-w-md mx-auto pt-8 overflow-y-auto pb-24">
-            {recents.length > 0 && (
-                <div className="mb-8 animate-fade-in">
-                    <h3 className="text-xs font-bold text-passport-teal uppercase tracking-widest mb-3 flex items-center gap-2 opacity-80"><Radio size={14}/> Recently Played</h3>
-                    <StationList items={recents} canDelete={false} />
-                </div>
-            )}
-            <div>
-                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <Book className="text-passport-teal" /> My Passport
-                    <span className="text-xs font-normal text-white/50 ml-auto bg-white/10 px-2 py-1 rounded-full">{favorites.length}</span>
-                </h2>
-                {favorites.length === 0 ? (
-                    <div className="text-center opacity-50 mt-10 p-6 border border-dashed border-white/20 rounded-2xl">
-                        <Heart size={48} className="mx-auto mb-4 text-white/20" />
-                        <p className="text-sm">No stamps collected yet.</p>
-                        <button onClick={() => setActiveTab('discover')} className="text-passport-teal text-sm mt-2 font-bold hover:underline">Go Explore</button>
-                    </div>
-                ) : <StationList items={favorites} canDelete={true} />}
-            </div>
+      <div className="p-4 pb-24 space-y-4 animate-fade-in text-white">
+        <h2 className="text-2xl font-bold mb-4">My Passport 🛂</h2>
+        
+        {/* CONTROL BAR: Search + Random Button */}
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            placeholder="Search saved stations..."
+            value={favSearchTerm}
+            onChange={(e) => setFavSearchTerm(e.target.value)}
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-passport-teal focus:ring-1 focus:ring-passport-teal"
+          />
+          <button 
+            onClick={playRandomFavorite}
+            disabled={favorites.length === 0}
+            className="bg-passport-teal hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-bold px-4 py-2 rounded-lg transition-colors flex items-center justify-center text-xl"
+            title="Surprise me!"
+          >
+            🎲
+          </button>
         </div>
+
+        {/* LIST OF FAVORITES */}
+        {favorites.length === 0 ? (
+          <div className="text-center text-slate-500 mt-10 py-10 bg-slate-800/50 rounded-xl border border-dashed border-slate-700">
+            <p className="text-xl mb-1">No stamps yet</p>
+            <p className="text-sm">Heart stations to save them here!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+             {filteredFavorites.length > 0 ? (
+                filteredFavorites.map((station) => (
+                <div
+                    key={station.stationuuid}
+                    onClick={() => playStationWrapper(station)}
+                    className={`group p-4 rounded-xl cursor-pointer transition-all border flex justify-between items-center ${
+                    currentStation?.stationuuid === station.stationuuid
+                        ? 'bg-passport-teal/10 border-passport-teal'
+                        : 'bg-slate-800 border-transparent hover:bg-slate-750 hover:border-slate-700'
+                    }`}
+                >
+                    <div className="overflow-hidden mr-4">
+                        <h3 className={`font-bold truncate ${currentStation?.stationuuid === station.stationuuid ? 'text-passport-teal' : 'text-white'}`}>
+                            {station.name}
+                        </h3>
+                        <p className="text-xs text-slate-400 truncate">
+                            {station.country || 'Unknown Location'}
+                        </p>
+                    </div>
+                    
+                    {/* Delete Button */}
+                    <button
+                        onClick={(e) => removeFavorite(e, station.stationuuid)}
+                        className="text-slate-600 hover:text-red-400 p-2 transition-colors"
+                        title="Remove from favorites"
+                    >
+                        ✕
+                    </button>
+                </div>
+                ))
+             ) : (
+                 <p className="text-center text-slate-500 mt-8">
+                   No matches found for "{favSearchTerm}"
+                 </p>
+             )}
+          </div>
+        )}
+      </div>
     );
-  };
+  };  
 
   return (
 <div className="relative h-[100dvh] bg-passport-dark text-white font-sans overflow-hidden flex flex-col">
