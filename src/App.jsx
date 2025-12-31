@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle, Clock, Home, X, Tent, Castle, FlagTriangleRight, Stamp } from 'lucide-react';import { cities, genres } from './data/cities';
+import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle, Clock, Home, X, Tent, Castle, FlagTriangleRight, Stamp, Share2 } from 'lucide-react';import { cities, genres } from './data/cities';
 
 const App = () => {
   // --- STATE ---
@@ -736,7 +736,7 @@ const TravelStats = () => {
       );
   };
   const PassportBook = ({ onClose }) => {
-      // Helper to safely get time from mixed data (numbers or objects)
+      // Helper to safely get time
       const getTime = (entry) => (typeof entry === 'number' ? entry : entry.time);
       
       // Sort entries by time
@@ -755,6 +755,31 @@ const TravelStats = () => {
           return { title: "Tourist", color: "text-white/60", border: "border-white/20", icon: <Tent size={16} /> };
       };
 
+      // --- SOCIAL SHARE FUNCTION ---
+      const handleShare = async (e, country, rankTitle, iso) => {
+          e.stopPropagation(); // Stop the card from clicking
+          
+          const shareData = {
+              title: 'Passport Radio Badge',
+              text: `I just earned the ${rankTitle} Badge for ${country} 📻✈️ on Passport Radio!`,
+              url: 'https://passportradio.netlify.app'
+          };
+
+          // 1. Try Native Mobile Share
+          if (navigator.share) {
+              try {
+                  await navigator.share(shareData);
+              } catch (err) {
+                  console.log('Share canceled');
+              }
+          } else {
+              // 2. Fallback for Desktop (Twitter)
+              const text = encodeURIComponent(shareData.text);
+              const url = encodeURIComponent(shareData.url);
+              window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+          }
+      };
+
       return (
           <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-xl flex flex-col animate-fade-in">
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
@@ -771,6 +796,7 @@ const TravelStats = () => {
                       <div className="flex flex-col items-center justify-center h-64 opacity-50 text-center">
                           <Stamp size={64} className="mb-4 text-white/20" />
                           <p>No stamps yet.</p>
+                          <p className="text-xs">Listen to collect badges!</p>
                       </div>
                   ) : (
                       <div className="grid grid-cols-2 gap-4">
@@ -782,7 +808,7 @@ const TravelStats = () => {
                               return (
                                   <div key={country} className={`relative p-3 rounded-lg border-2 border-dashed ${rank.border} bg-white/5 flex flex-col items-center text-center aspect-square group hover:bg-white/10 transition overflow-hidden`}>
                                       
-                                      {/* BACKGROUND FLAG (Faded) */}
+                                      {/* BACKGROUND FLAG */}
                                       {iso !== 'xx' && (
                                           <img 
                                               src={`https://flagcdn.com/w160/${iso}.png`}
@@ -791,14 +817,22 @@ const TravelStats = () => {
                                           />
                                       )}
 
-                                      {/* Content sits on top */}
-                                      <div className="relative z-10 flex flex-col items-center h-full justify-between py-2">
-                                          {/* Rank Badge */}
+                                      {/* SHARE BUTTON (Appears on Hover/Top-Right) */}
+                                      <button 
+                                          onClick={(e) => handleShare(e, country, rank.title, iso)}
+                                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-passport-teal hover:text-white transition z-20 backdrop-blur border border-white/10"
+                                          title="Share Milestone"
+                                      >
+                                          <Share2 size={12} />
+                                      </button>
+
+                                      {/* Content */}
+                                      <div className="relative z-10 flex flex-col items-center h-full justify-between py-2 w-full">
                                           <div className={`p-2 rounded-full bg-slate-900/80 backdrop-blur border border-white/10 ${rank.color} shadow-lg`}>
                                               {rank.icon}
                                           </div>
                                           
-                                          <div>
+                                          <div className="w-full">
                                               <div className="font-bold text-sm text-white leading-tight mb-1 line-clamp-2 drop-shadow-md">
                                                   {country}
                                               </div>
@@ -875,7 +909,11 @@ const TravelStats = () => {
                                     {groupedFavorites[country].map((station) => (
                                         <div 
                                             key={station.stationuuid} 
-                                            onClick={() => playStationWrapper(station)} 
+                                              onClick={() => {
+                                                setCurrentStation(station);  // Set the station
+                                                setIsPlaying(true);          // Start playing
+                                                setActiveTab('discover');    // Go to player view
+                                              }}
                                             className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition active:scale-95"
                                         >
                                             <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
