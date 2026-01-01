@@ -1,6 +1,6 @@
-const CACHE_NAME = 'passport-radio-v5'; // Version 5
+const CACHE_NAME = 'passport-radio-v10'; // Version 10
 
-// We removed the specific images to prevent installation crashes
+// We REMOVED the specific images to prevent installation crashes.
 const urlsToCache = [
   '/',
   '/index.html',
