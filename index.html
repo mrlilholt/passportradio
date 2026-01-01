@@ -48,5 +48,51 @@
         });
       }
     </script>
+    <button id="install-btn" style="
+    display: flex;             /* Force it to show so you can test position */
+    align-items: center;
+    position: fixed; 
+    top: 18px;                 /* Aligns with header */
+    right: 200px;              /* <--- CHANGE THIS: Anchors it to the RIGHT side */
+    z-index: 9999; 
+    background: #00e676;       
+    color: #000; 
+    border: none; 
+    padding: 8px 16px;       
+    border-radius: 20px; 
+    font-weight: bold; 
+    font-family: sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+  ⬇ Install
+</button>
+
+<script>
+  let deferredPrompt;
+  const installBtn = document.getElementById('install-btn');
+  
+  // HIDE button initially if not supported (optional: comment this out to force-show it for testing)
+  // installBtn.style.display = 'none'; 
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'flex'; // Show it when ready
+    console.log("App is installable! Event fired.");
+  });
+
+  installBtn.addEventListener('click', (e) => {
+    if (deferredPrompt) {
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        deferredPrompt = null;
+      });
+    } else {
+        alert("Installation not ready yet. Make sure you are on Android/Chrome and the Service Worker is active.");
+    }
+  });
+</script>
   </body>
 </html>
