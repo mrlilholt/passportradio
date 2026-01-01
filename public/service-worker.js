@@ -1,8 +1,6 @@
-// service-worker.js
-const CACHE_NAME = 'passport-radio-v3'; // Bumped version to v3
+const CACHE_NAME = 'passport-radio-v5'; // Version 5
 
-// Only cache critical files. If one of these is missing, install fails.
-// We removed the images from here to be safe.
+// We removed the specific images to prevent installation crashes
 const urlsToCache = [
   '/',
   '/index.html',
@@ -10,7 +8,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -22,7 +20,6 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   self.clients.claim();
-  // Clear old caches
   event.waitUntil(
     caches.keys().then((keyList) => {
       return Promise.all(keyList.map((key) => {
@@ -34,7 +31,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network First Strategy (Fixes the 404s)
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
