@@ -2,6 +2,155 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle, Clock, Home, X, Tent, Castle, FlagTriangleRight, Stamp, Share2 } from 'lucide-react';import { cities, genres } from './data/cities';
 
+// --- PASTE THIS BLOCK ABOVE 'const App = ...' ---
+
+const SearchView = ({ setCurrentCity, setActiveTab, setFilterGenre }) => {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        if(!query) return;
+        setSearching(true);
+        try {
+            const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=en&format=json`);
+            const data = await res.json();
+            if(data.results) setResults(data.results);
+            else setResults([]);
+        } catch(err) { console.error(err); }
+        setSearching(false);
+    };
+
+    const selectLocation = (place) => {
+        const newCity = {
+            name: place.name,
+            country: place.country,
+            iso: place.country_code,
+            lat: place.latitude,
+            lng: place.longitude
+        };
+        setCurrentCity(newCity);
+        setActiveTab('discover');
+        setFilterGenre(null);
+    };
+    
+    return (
+        <div className="flex flex-col h-full p-4 w-full max-w-md mx-auto pt-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <Globe className="text-passport-teal" /> Global Search
+            </h2>
+            <form onSubmit={handleSearch} className="relative mb-6">
+                <input type="text" placeholder="Type a city (e.g. Kyoto, Lima)..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 pl-10 focus:outline-none focus:border-passport-teal text-white placeholder-white/40" autoFocus />
+                <Search className="absolute left-3 top-3.5 text-white/40" size={18} />
+                <button type="submit" className="absolute right-2 top-2 bg-passport-teal text-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold">GO</button>
+            </form>
+            <div className="flex-1 overflow-y-auto space-y-2 pb-20">
+                {searching ? <div className="flex justify-center py-10 opacity-50"><Loader className="animate-spin"/></div> : results.map((place) => (
+                    <button key={place.id} onClick={() => selectLocation(place)} className="w-full bg-black/20 hover:bg-white/10 border border-white/5 p-3 rounded-lg flex items-center justify-between group transition text-left">
+                        <div><div className="font-bold text-lg">{place.name}</div><div className="text-white/50 text-sm">{place.admin1 ? `${place.admin1}, ` : ''}{place.country}</div></div>
+                        <img src={`https://flagsapi.com/${place.country_code}/flat/64.png`} className="w-8 h-8 object-contain" onError={(e) => e.target.style.display = 'none'} alt={place.country_code}/>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const GameView = ({ cities, apiServer, setCurrentStation, setIsPlaying }) => {
+    const [gameScore, setGameScore] = useState(0);
+    const [gameRoundData, setGameRoundData] = useState(null);
+    const [isGameLoading, setIsGameLoading] = useState(false);
+    
+    const startNewGameRound = async () => {
+        if (!apiServer) return;
+        setIsGameLoading(true);
+        setGameRoundData(null);
+        try {
+            const randomOffset = Math.floor(Math.random() * 500);
+            const res = await fetch(`${apiServer}/json/stations/search?limit=1&offset=${randomOffset}&order=clickcount&hidebroken=true&https=true`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+                const secretStation = data[0];
+                setCurrentStation(secretStation);
+                setIsPlaying(true);
+                const allCountries = [...new Set(cities.map(c => c.country))];
+                const correctCountry = secretStation.country || "Unknown";
+                const distractors = allCountries.filter(c => c !== correctCountry).sort(() => 0.5 - Math.random()).slice(0, 3);
+                const options = [...distractors, correctCountry].sort(() => 0.5 - Math.random());
+                setGameRoundData({ station: secretStation, options, correctAnswer: correctCountry, hasGuessed: false, userCorrect: false });
+            }
+        } catch (e) { console.error("Game Error", e); setTimeout(startNewGameRound, 1000); } finally { setIsGameLoading(false); }
+    };
+
+    const handleGameGuess = (country) => {
+        if (gameRoundData.hasGuessed) return;
+        const isCorrect = country === gameRoundData.correctAnswer;
+        if (isCorrect) setGameScore(s => s + 1);
+        else setGameScore(s => Math.max(0, s - 1));
+        setGameRoundData(prev => ({ ...prev, hasGuessed: true, userCorrect: isCorrect }));
+    };
+
+    return (
+        <div className="p-6 flex flex-col items-center h-full animate-fade-in pb-24 overflow-y-auto">
+            <div className="w-full flex justify-between items-center mb-6 bg-white/5 p-4 rounded-2xl border border-white/10 shrink-0">
+                <div className="flex items-center gap-3"><Trophy size={24} className="text-passport-teal"/><h3 className="font-bold text-lg">Score: {gameScore}</h3></div>
+            </div>
+            {!gameRoundData && !isGameLoading && <div className="text-center"><button onClick={startNewGameRound} className="bg-white text-passport-dark font-bold px-8 py-3 rounded-full hover:scale-105 transition">Start Game</button></div>}
+            {isGameLoading && <div className="flex flex-col items-center"><Loader className="animate-spin mb-4 text-passport-teal"/><p>Tuning in...</p></div>}
+            {gameRoundData && (
+                <div className="w-full space-y-4">
+                    <div className="relative w-32 h-32 mx-auto bg-black/50 rounded-full border-4 border-white/10 flex items-center justify-center mb-6">
+                        {gameRoundData.hasGuessed ? <img src={gameRoundData.station.favicon} onError={(e)=>e.target.style.display='none'} className="w-full h-full object-cover rounded-full"/> : <Radio size={48} className="animate-pulse text-white/50"/>}
+                    </div>
+                    <h3 className="text-center text-xl font-bold mb-4">{gameRoundData.hasGuessed ? (gameRoundData.userCorrect ? "Correct!" : `It was ${gameRoundData.correctAnswer}`) : "Where is this station?"}</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                        {gameRoundData.options.map((country, idx) => (
+                            <button key={idx} disabled={gameRoundData.hasGuessed} onClick={() => handleGameGuess(country)} className={`p-4 rounded-xl border font-bold text-left transition-all ${gameRoundData.hasGuessed && country === gameRoundData.correctAnswer ? 'bg-green-500 border-green-500' : 'bg-white/10 border-white/10'}`}>{country}</button>
+                        ))}
+                    </div>
+                    {gameRoundData.hasGuessed && <button onClick={startNewGameRound} className="w-full mt-6 bg-white text-passport-dark font-bold py-3 rounded-xl">Next Round →</button>}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const FavoritesView = ({ favorites, removeFavorite, setCurrentStation, setIsPlaying, setActiveTab, setCurrentCity }) => {
+    return (
+        <div className="p-4 h-full overflow-y-auto pb-24">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Book className="text-passport-teal"/> My Passport</h2>
+            {favorites.length === 0 ? <div className="text-center opacity-50 mt-10">No favorites yet.</div> : (
+                <div className="space-y-3">
+                    {favorites.map((station) => (
+                        <div key={station.stationuuid} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center shrink-0">
+                                <img src={station.favicon} onError={(e) => e.target.style.display='none'} className="w-full h-full object-contain"/>
+                            </div>
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
+                                setCurrentStation(station);
+                                setIsPlaying(true);
+                                setActiveTab('discover');
+                                // --- THE FIX IS HERE ---
+                                setCurrentCity({
+                                    name: station.name.substring(0, 20),
+                                    country: station.country || "World",
+                                    iso: station.countrycode || "xx",
+                                    lat: 0, lng: 0
+                                });
+                            }}>
+                                <h4 className="font-bold text-sm truncate">{station.name}</h4>
+                                <p className="text-xs text-white/50 truncate">{station.country}</p>
+                            </div>
+                            <button onClick={(e) => removeFavorite(e, station.stationuuid)} className="p-2 text-white/30 hover:text-red-500"><VolumeX size={16}/></button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const App = () => {
   // --- STATE ---
   const [activeTab, setActiveTab] = useState('discover'); 
@@ -44,6 +193,25 @@ const App = () => {
   const [travelLogs, setTravelLogs] = useState(() => {
       return JSON.parse(localStorage.getItem('passport_travel_logs')) || {};
   });
+  // --- MISSING STATE VARIABLES (Paste this inside App) ---
+  const [showStampBook, setShowStampBook] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [homeCountry, setHomeCountry] = useState('US'); // Default home country
+  
+  // --- MISSING SHARE FUNCTION ---
+  const handleShare = async () => {
+      if (navigator.share) {
+          try {
+              await navigator.share({
+                  title: 'Passport Radio',
+                  text: `I'm listening to radio in ${currentCity.name}!`,
+                  url: window.location.href,
+              });
+          } catch (error) { console.log('Error sharing:', error); }
+      } else {
+          alert("Share feature not supported on this browser.");
+      }
+  };
   // 1. Find a Working API Server on Startup
   useEffect(() => {
     const resolveServer = async () => {
@@ -251,6 +419,10 @@ let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith
     } else {
       setFavorites([...favorites, currentStation]);
     }
+  };
+  const removeFavorite = (e, uuid) => {
+      e.stopPropagation();
+      setFavorites(favorites.filter(f => f.stationuuid !== uuid));
   };
 
   const handleTeleport = () => {
@@ -854,10 +1026,18 @@ const TravelStats = () => {
           </div>
       );
   };
- const FavoritesView = () => {
-    const [showStampBook, setShowStampBook] = useState(false); // State for the modal
-
-    // Grouping Logic
+ const FavoritesView = ({ 
+    favorites, 
+    removeFavorite, 
+    setCurrentStation, 
+    setIsPlaying, 
+    setActiveTab, 
+    setCurrentCity, // <--- 1. We accept the tool here
+    showStampBook, setShowStampBook,
+    showSettings, setShowSettings,
+    travelLogs, homeCountry, handleShare 
+}) => {
+    // Grouping Logic (Keeps your country headers)
     const groupedFavorites = favorites.reduce((groups, station) => {
         const country = station.country || "International";
         if (!groups[country]) groups[country] = [];
@@ -868,31 +1048,30 @@ const TravelStats = () => {
 
     return (
         <div className="flex-1 w-full h-full relative">
-            {/* --- CONDITIONAL RENDER: STAMP BOOK MODAL --- */}
-            {showStampBook && <PassportBook onClose={() => setShowStampBook(false)} />}
+            {/* STAMP BOOK MODAL */}
+            {showStampBook && <PassportBook onClose={() => setShowStampBook(false)} travelLogs={travelLogs} homeCountry={homeCountry} handleShare={handleShare} />}
 
             <div className="w-full h-full overflow-y-auto pb-24 p-4 animate-fade-in">
-                {/* Header with "Open Book" Button */}
-                <div className="mb-6 sticky top-0 bg-passport-dark/95 backdrop-blur z-10 py-2 border-b border-white/10 flex justify-between items-center">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                {/* Header with "View Stamps" Button */}
+                <div className="mb-6 sticky top-0 bg-slate-900/95 backdrop-blur z-10 py-2 border-b border-white/10 flex justify-between items-center">
+                    <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
                         <Book className="text-passport-teal" /> My Passport
                     </h2>
                     
-                    {/* NEW BUTTON: Moves the cards away from the music list */}
                     <button 
                         onClick={() => setShowStampBook(true)}
-                        className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition"
+                        className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition text-white"
                     >
                         <Stamp size={14} className="text-passport-teal" />
                         View Stamps
                     </button>
                 </div>
 
-                {/* Favorites List (Music Only) */}
+                {/* Favorites List */}
                 {favorites.length === 0 ? (
                     <div className="text-center opacity-50 mt-20 p-6 border border-dashed border-white/20 rounded-2xl">
                         <Heart size={48} className="mx-auto mb-4 text-white/20" />
-                        <p className="text-sm">No stations favorited.</p>
+                        <p className="text-sm text-white">No stations favorited.</p>
                         <button onClick={() => setActiveTab('discover')} className="text-passport-teal text-sm mt-2 font-bold hover:underline">
                             Go Explore
                         </button>
@@ -901,7 +1080,7 @@ const TravelStats = () => {
                     <div className="space-y-8">
                         {sortedCountries.map((country) => (
                             <div key={country} className="animate-fade-in">
-                                <h3 className="text-xs font-bold text-passport-teal uppercase tracking-widest mb-3 flex items-center gap-2 opacity-80 sticky top-14 bg-passport-dark/90 p-1 rounded-md w-fit">
+                                <h3 className="text-xs font-bold text-passport-teal uppercase tracking-widest mb-3 flex items-center gap-2 opacity-80 sticky top-14 bg-slate-900/90 p-1 rounded-md w-fit">
                                     <Globe size={14} /> {country}
                                 </h3>
                                 
@@ -909,11 +1088,22 @@ const TravelStats = () => {
                                     {groupedFavorites[country].map((station) => (
                                         <div 
                                             key={station.stationuuid} 
-                                              onClick={() => {
-                                                setCurrentStation(station);  // Set the station
-                                                setIsPlaying(true);          // Start playing
-                                                setActiveTab('discover');    // Go to player view
-                                              }}
+                                            onClick={() => {
+                                                // --- THE FIX ---
+                                                setCurrentStation(station);
+                                                setIsPlaying(true);
+                                                setActiveTab('discover');
+
+                                                // Update Location Header
+                                                if(setCurrentCity) {
+                                                    setCurrentCity({
+                                                        name: station.name.substring(0, 20),
+                                                        country: station.country || "World",
+                                                        iso: station.countrycode || "xx",
+                                                        lat: 0, lng: 0
+                                                    });
+                                                }
+                                            }}
                                             className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition active:scale-95"
                                         >
                                             <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
@@ -925,7 +1115,10 @@ const TravelStats = () => {
                                                 <p className="text-xs text-white/50 truncate">{station.state || station.tags || 'Unknown Region'}</p>
                                             </div>
                                             <button 
-                                                onClick={(e) => removeFavorite(e, station.stationuuid)} 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    removeFavorite(e, station.stationuuid);
+                                                }} 
                                                 className="p-2 text-white/30 hover:text-red-500 hover:bg-white/10 rounded-full transition z-20"
                                             >
                                                 <VolumeX size={16} />
@@ -940,7 +1133,7 @@ const TravelStats = () => {
             </div>
         </div>
     );
-  };  
+};  
 
   return (
 <div className="relative h-[100dvh] bg-passport-dark text-white font-sans overflow-hidden flex flex-col">
@@ -1036,7 +1229,20 @@ const TravelStats = () => {
                 {activeTab === 'discover' && <PlayerView />}
 {activeTab === 'search' && <SearchView />}
 {activeTab === 'game' && <GameView />}  {/* <--- ADD THIS */}
-{activeTab === 'favorites' && <FavoritesView />}
+{activeTab === 'favorites' && <FavoritesView 
+                favorites={favorites} 
+                removeFavorite={removeFavorite}
+                setCurrentStation={setCurrentStation}
+                setIsPlaying={setIsPlaying}
+                setActiveTab={setActiveTab}
+                showStampBook={showStampBook}
+                setShowStampBook={setShowStampBook}
+                showSettings={showSettings}
+                setShowSettings={setShowSettings}
+                travelLogs={travelLogs}
+                homeCountry={homeCountry}
+                handleShare={handleShare}
+                setCurrentCity={setCurrentCity}/>}
 </>
         )}
       </main>
