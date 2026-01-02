@@ -205,7 +205,7 @@ const Settings = ({ userHome, setUserHome, onClose }) => {
                         Passport Radio is a free project.
                     </p>
                     <a 
-                        href="https://ko-fi.com" 
+                        href="https://ko-fi.com/lilholtmakes" 
                         target="_blank" 
                         rel="noreferrer"
                         className="flex items-center justify-center gap-2 bg-[#FF5E5B] text-white font-bold py-3 rounded-xl hover:bg-[#ff7572] transition shadow-lg hover:shadow-red-500/20"

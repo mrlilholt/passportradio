@@ -48,54 +48,6 @@
         });
       }
     </script>
-    <button id="install-btn" style="
-        display: none; 
-        position: fixed; 
-        top: 18px;                 /* Adjusted: Aligns vertically with the logo/header */
-        right: 220px;              /* Adjusted: pushed left to clear the 'Tashkent' button */
-        z-index: 10000; 
-        background: #00e676; 
-        color: #000; 
-        border: none; 
-        padding: 8px 16px; 
-        border-radius: 50px; 
-        font-weight: 800; 
-        font-family: 'Montserrat', sans-serif;
-        font-size: 13px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
-        cursor: pointer;
-        align-items: center;
-        gap: 6px;">
-      <span style="font-size: 16px">⬇</span> App
-    </button>
-
-    <script>
-      let deferredPrompt;
-      const installBtn = document.getElementById('install-btn');
-
-      // 1. Listen for "App Ready"
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        installBtn.style.display = 'flex'; // REVEAL BUTTON
-        console.log("✅ App is installable!");
-      });
-
-      // 2. Handle Click
-      installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-          installBtn.style.display = 'none';
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          console.log(`User response: ${outcome}`);
-          deferredPrompt = null;
-        }
-      });
-
-      // 3. Hide if already installed
-      window.addEventListener('appinstalled', () => {
-        installBtn.style.display = 'none';
-      });
-    </script>
+    
   </body>
 </html>
