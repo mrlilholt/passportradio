@@ -19,7 +19,7 @@ import FlyoverTransition from './components/FlyoverTransition';
 // 👇 Firebase & Auth Imports
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 
 const App = () => {
     // 👇 Get User Context
@@ -69,6 +69,26 @@ const App = () => {
     const [userHome, setUserHome] = useState(localStorage.getItem('userHome') || '');
 
     // --- EFFECTS ---
+// ⬆️ SYNC: Upload Local Data to Cloud on Login
+    useEffect(() => {
+        const syncLocalToCloud = async () => {
+            if (user && Object.keys(travelLogs).length > 0) {
+                try {
+                    // Use setDoc with {merge:true} so we don't overwrite other fields
+                    await setDoc(doc(db, 'users', user.uid), {
+                        travelLogs: travelLogs, // Push local stamps to cloud
+                        highScore: highScore,
+                        favorites: favorites
+                    }, { merge: true });
+                    console.log("✅ Local data synced to Cloud Account");
+                } catch (e) {
+                    console.error("Sync failed:", e);
+                }
+            }
+        };
+
+        syncLocalToCloud();
+    }, [user]); // 👈 Runs once when 'user' changes (Login)
 
     // ☁️ SYNC: Real-time Data Listener (Syncs across devices)
     useEffect(() => {
@@ -134,13 +154,14 @@ const App = () => {
         return () => unsubscribe();
     }, [user]);
 
-    // 🌟 CLOUD SAVE HELPER
+   // 💾 Helper: Save data to Firebase
     const saveToCloud = async (field, value) => {
-        if (user) {
-            try {
-                const userRef = doc(db, "users", user.uid);
-                await updateDoc(userRef, { [field]: value });
-            } catch (e) { /* ignore offline errors */ }
+        if (!user) return;
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, { [field]: value }, { merge: true });
+        } catch (error) {
+            console.error("Error saving to cloud:", error);
         }
     };
 
