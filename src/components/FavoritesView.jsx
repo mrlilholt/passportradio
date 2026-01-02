@@ -2,19 +2,47 @@ import React from 'react';
 import { Book, Settings, Stamp, Share2, Globe, Heart, Radio, VolumeX } from 'lucide-react';
 import PassportBook from './PassportBook';
 
-const FavoritesView = ({ favorites, removeFavorite, setCurrentStation, setIsPlaying, setActiveTab, showStampBook, setShowStampBook, travelLogs, setShowPassportProfile, showHomelandInvite, setShowHomelandInvite, currentStation }) => {
-    // Group favorites by country
+const FavoritesView = ({ 
+    favorites, 
+    removeFavorite, 
+    setCurrentStation, 
+    setIsPlaying, 
+    setActiveTab, 
+    showStampBook, 
+    setShowStampBook, 
+    travelLogs, 
+    setShowPassportProfile, 
+    showHomelandInvite, 
+    setShowHomelandInvite, 
+    currentStation,
+    onTravel // <--- The new prop for Flyover
+}) => {
+    
+    // 👇 THIS WAS MISSING! We need to calculate the groups.
     const groupedFavorites = favorites.reduce((groups, station) => {
         const country = station.country || "International";
         if (!groups[country]) groups[country] = [];
         groups[country].push(station);
         return groups;
     }, {});
+    
     const sortedCountries = Object.keys(groupedFavorites).sort();
 
     return (
         <div className="flex-1 w-full h-full relative">
-            {showStampBook && <PassportBook onClose={() => setShowStampBook(false)} travelLogs={travelLogs} />}
+            
+            {/* RENDER PASSPORT BOOK WITH FLYOVER LOGIC */}
+            {showStampBook && (
+                <PassportBook 
+                    onClose={() => setShowStampBook(false)} 
+                    travelLogs={travelLogs} 
+                    onTravel={(city) => {
+                        setShowStampBook(false); // Close book immediately
+                        onTravel(city);          // Trigger the App.jsx animation
+                    }}
+                />
+            )}
+
             <div className="w-full h-full overflow-y-auto pb-24 p-4 animate-fade-in">
                 {/* Header */}
                 <div className="mb-6 sticky top-0 bg-slate-900/95 backdrop-blur z-10 py-2 border-b border-white/10 flex justify-between items-center">

@@ -13,6 +13,8 @@ import GameView from './components/GameView';
 import FavoritesView from './components/FavoritesView';
 import SettingsPage from './components/Settings';
 import GlobeView from './components/GlobeView';
+import { playStampSound } from './utils/audio';
+import FlyoverTransition from './components/FlyoverTransition';
 
 const App = () => {
     // --- STATE ---
@@ -37,6 +39,9 @@ const App = () => {
     const audioRef = useRef(null);
     const [showStampBook, setShowStampBook] = useState(false);
     const [isHome, setIsHome] = useState(false);
+    const [visitHistory, setVisitHistory] = useState([cities.find(c => c.name === "Tashkent") || cities[0]]);
+    const [isFlying, setIsFlying] = useState(false);
+    const [flyTarget, setFlyTarget] = useState(null);
 
     // --- GAME STATE ---
     const [gameScore, setGameScore] = useState(0);
@@ -58,6 +63,24 @@ const App = () => {
     const [userHome, setUserHome] = useState(localStorage.getItem('userHome') || '');
 
     // --- EFFECTS ---
+// ✈️ TELEPORT HANDLER
+const handlePassportTravel = (city) => {
+    // 1. Start Animation
+    setFlyTarget(city);
+    setIsFlying(true);
+
+    // 2. Wait for plane to "fly" (2.2 seconds)
+    setTimeout(() => {
+        setCurrentCity(city);
+        setActiveTab('discover'); // Switch to player view
+
+        // 3. Reset UI
+        setTimeout(() => {
+            setIsFlying(false);
+            setFlyTarget(null);
+        }, 500); // Small buffer to ensure seamless swap
+    }, 2200);
+};
 
     // 1. Find a Working API Server on Startup
     useEffect(() => {
@@ -74,25 +97,37 @@ const App = () => {
         resolveServer();
     }, []);
 
-    // 2. Track Listening Time
-    useEffect(() => {
-        let interval;
-        if (isPlaying && currentStation) {
-            interval = setInterval(() => {
-                setTravelLogs(prev => {
-                    const country = currentStation.country || "International";
-                    const iso = currentStation.countrycode || "xx";
-                    const previousData = prev[country];
-                    const currentSeconds = (typeof previousData === 'number') ? previousData : (previousData?.time || 0);
-                    const newEntry = { time: currentSeconds + 1, iso: iso };
-                    const newLogs = { ...prev, [country]: newEntry };
-                    localStorage.setItem('passport_travel_logs', JSON.stringify(newLogs));
-                    return newLogs;
-                });
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [isPlaying, currentStation]);
+    // 2. Track Listening Time & Play Sound Effects 🔊
+useEffect(() => {
+    let interval;
+    if (isPlaying && currentStation) {
+        interval = setInterval(() => {
+            setTravelLogs(prev => {
+                const country = currentStation.country || "International";
+                const iso = currentStation.countrycode || "xx";
+                const previousData = prev[country];
+
+                // Handle legacy data structure
+                const currentSeconds = (typeof previousData === 'number') ? previousData : (previousData?.time || 0);
+                const newTime = currentSeconds + 1;
+
+                // 🔊 SOUND TRIGGER LOGIC (Synthesized)
+                if (newTime === 30 || newTime === 3600 || newTime === 18000) {
+                    playStampSound();
+
+                    // Vibration for mobile
+                    if (navigator.vibrate) navigator.vibrate(200);
+                }
+
+                const newEntry = { time: newTime, iso: iso };
+                const newLogs = { ...prev, [country]: newEntry };
+                localStorage.setItem('passport_travel_logs', JSON.stringify(newLogs));
+                return newLogs;
+            });
+        }, 1000);
+    }
+    return () => clearInterval(interval);
+}, [isPlaying, currentStation]);
 
     // 3. Splash Timer
     useEffect(() => {
@@ -121,10 +156,17 @@ const App = () => {
     useEffect(() => { localStorage.setItem('passport_favs', JSON.stringify(favorites)); }, [favorites]);
     useEffect(() => { localStorage.setItem('passport_recents', JSON.stringify(recents)); }, [recents]);
 
-    // 6. Dynamic Background
+    // 6. Dynamic Background AND History Tracking
     useEffect(() => {
         const query = `${currentCity.name},${currentCity.country},architecture,city`;
         setBgImage(`https://source.unsplash.com/1600x900/?${query}&t=${new Date().getTime()}`);
+        
+        // 👇 ADD THIS BLOCK
+        setVisitHistory(prev => {
+            // Prevent duplicates if the last city is the same (e.g. init)
+            if (prev.length > 0 && prev[prev.length - 1].name === currentCity.name) return prev;
+            return [...prev, currentCity];
+        });
     }, [currentCity]);
 
     // 7. Track Recently Played
@@ -440,16 +482,21 @@ const App = () => {
                                 showHomelandInvite={showHomelandInvite}
                                 setShowHomelandInvite={setShowHomelandInvite}
                                 currentStation={currentStation}
+                                setCurrentCity={setCurrentCity}
+                                onTravel={handlePassportTravel}
                             />
                         )}
+                        {/* 4. NEW MAP TAB */}
                         {activeTab === 'map' && (
                             <GlobeView 
-                              cities={cities} 
-                              onSelectCity={(city) => {
-                               setCurrentCity(city);
-                               setActiveTab('discover'); // Switch to player after selection
-                               }} 
-                           />
+                                cities={cities} 
+                                // 👇 PASS THE HISTORY HERE
+                                visitHistory={visitHistory}
+                                onSelectCity={(city) => {
+                                    setCurrentCity(city);
+                                    setActiveTab('discover');
+                                }} 
+                            />
                         )}
                     </>
                 )}
@@ -476,14 +523,20 @@ const App = () => {
             </nav>
             <audio ref={audioRef} src={currentStation?.url_resolved} onError={(e) => { console.log("Stream failed:", e); changeStation(1); }} onEnded={() => changeStation(1)} />
             
+            {/* ✈️ ANIMATION OVERLAY */}
+              {isFlying && flyTarget && (
+                <FlyoverTransition targetCity={flyTarget} />
+              )}
+
             {/* Settings Modal */}
-            {showPassportProfile && (
+              {showPassportProfile && (
                 <SettingsPage 
                     userHome={userHome} 
                     setUserHome={setUserHome} 
                     onClose={() => setShowPassportProfile(false)} 
                 />
             )}
+            
         </div>
     );
 };
