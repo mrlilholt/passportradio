@@ -47,8 +47,7 @@ const App = () => {
     const audioRef = useRef(null);
     const [showStampBook, setShowStampBook] = useState(false);
     const [isHome, setIsHome] = useState(false);
-    const [visitHistory, setVisitHistory] = useState([cities.find(c => c.name === "Tashkent") || cities[0]]);
-    const [isFlying, setIsFlying] = useState(false);
+const [visitHistory, setVisitHistory] = useState(() => JSON.parse(localStorage.getItem('passport_visit_history')) || [cities.find(c => c.name === "Tashkent") || cities[0]]);    const [isFlying, setIsFlying] = useState(false);
     const [flyTarget, setFlyTarget] = useState(null);
     const [travelLogs, setTravelLogs] = useState(() => JSON.parse(localStorage.getItem('passport_travel_logs')) || {});
     
@@ -78,7 +77,8 @@ const App = () => {
                     await setDoc(doc(db, 'users', user.uid), {
                         travelLogs: travelLogs, // Push local stamps to cloud
                         highScore: highScore,
-                        favorites: favorites
+                        favorites: favorites,
+                        visitHistory: visitHistory
                     }, { merge: true });
                     console.log("✅ Local data synced to Cloud Account");
                 } catch (e) {
@@ -148,7 +148,8 @@ const App = () => {
                 if (data.favorites) setFavorites(data.favorites);
                 if (data.travelLogs) setTravelLogs(data.travelLogs);
                 if (data.userHome) setUserHome(data.userHome);
-                if (data.highScore) setHighScore(data.highScore);
+                if (data.highScore) setHighScore(data.highScore)
+                if (data.visitHistory) setVisitHistory(data.visitHistory);
             }
         });
         return () => unsubscribe();
@@ -291,14 +292,33 @@ const handlePassportTravel = (city) => {
         const query = `${currentCity.name},${currentCity.country},architecture,city`;
         setBgImage(`https://source.unsplash.com/1600x900/?${query}&t=${new Date().getTime()}`);
         
-        // 👇 ADD THIS BLOCK
         setVisitHistory(prev => {
-            // Prevent duplicates if the last city is the same (e.g. init)
+            // 1. Prevent duplicates if the last city is the same
             if (prev.length > 0 && prev[prev.length - 1].name === currentCity.name) return prev;
-            return [...prev, currentCity];
+            
+            // 🧹 SANITIZE: Create a clean copy of the city without hidden 3D objects
+            // This fixes the "custom Group object" error!
+            const cleanCity = {
+                name: currentCity.name,
+                country: currentCity.country,
+                lat: currentCity.lat,
+                lng: currentCity.lng,
+                population: currentCity.population || 0
+            };
+            
+            // 2. Create new history with the CLEAN city
+            const newHistory = [...prev, cleanCity];
+            
+            // 3. Save to Local Storage
+            localStorage.setItem('passport_visit_history', JSON.stringify(newHistory));
+            
+            // 4. Save to Cloud (if logged in)
+            if (user) saveToCloud('visitHistory', newHistory);
+            
+            return newHistory;
         });
-    }, [currentCity]);
-
+    }, [currentCity, user]);
+    
     // 7. Track Recently Played
     useEffect(() => {
         if (currentStation && isPlaying) {
