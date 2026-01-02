@@ -1,11 +1,13 @@
 import React from 'react';
-import { Play, Pause, Heart, SkipForward, Volume2, VolumeX, MapPin } from 'lucide-react';
+import { Play, Pause, Heart, SkipForward, Volume2, VolumeX, MapPin, Compass, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { genres } from '../data/cities';
 import { useSongInfo } from '../hooks/useSongInfo';
 
 // 1. Changed "=> (" to "=> {" to allow logic before returning
-const PlayerView = ({ currentStation, currentCity, isPlaying, setIsPlaying, toggleFavorite, favorites, stations, changeStation, isMuted, setIsMuted, volume, setVolume, filterGenre, setFilterGenre, swipeHandlers, slideDirection }) => {
+const PlayerView = ({ currentStation, currentCity, isPlaying, setIsPlaying, toggleFavorite, favorites, stations, changeStation, isMuted, setIsMuted, volume, setVolume, filterGenre, setFilterGenre, swipeHandlers, slideDirection, onTravel, setShowPassportProfile }) => {
 
+    const { user } = useAuth();
     // 2. Hook must be called here, at the top level
     const { cover } = useSongInfo(currentStation);
 

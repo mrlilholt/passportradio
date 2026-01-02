@@ -37,7 +37,7 @@ const SearchView = ({ setCurrentCity, setActiveTab, setFilterGenre }) => {
             <div className="flex-1 overflow-y-auto space-y-2 pb-20">
                 {searching ? <div className="flex justify-center py-10 opacity-50"><Loader className="animate-spin" /></div> : results.map((place) => (
                     <button key={place.id} onClick={() => selectLocation(place)} className="w-full bg-black/20 hover:bg-white/10 border border-white/5 p-3 rounded-lg flex items-center justify-between group transition text-left">
-                        <div><div className="font-bold text-lg">{place.name}</div><div className="text-white/50 text-sm">{place.admin1 ? `${place.admin1}, ` : ''}{place.country}</div></div>
+                        <div><div className="font-bold text-lg">{place.name}</div><div className="text-white/50 text-sm">{place.country}</div></div>
                         <img src={`https://flagsapi.com/${place.country_code}/flat/64.png`} className="w-8 h-8 object-contain" onError={(e) => e.target.style.display = 'none'} alt={place.country_code} />
                     </button>
                 ))}

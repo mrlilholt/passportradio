@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, X, Home, Search, MapPin, Heart, Loader, Save, Globe, CheckCircle } from 'lucide-react';
+import { Settings as SettingsIcon, X, Home, Search, MapPin, Heart, Loader, Save, Globe, CheckCircle, LogOut, User } from 'lucide-react';
 import { cities } from '../data/cities';
+import { useAuth } from '../context/AuthContext';
 
-const Settings = ({ userHome, setUserHome, onClose }) => {
+const Settings = ({ userHome, setUserHome, onClose, localDataForSync }) => {
+    const { user, login, logout } = useAuth();
     // Parse current home safely for the "Badge" display
     const currentHomeDisplay = (() => {
         if (!userHome) return null;
@@ -82,6 +84,55 @@ const Settings = ({ userHome, setUserHome, onClose }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                
+                {/* 🌟 NEW: PILOT LICENSE SECTION */}
+                <section className="bg-gradient-to-r from-slate-800 to-slate-900 border border-white/10 rounded-xl p-6 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10">
+                         <User size={100} className="text-white" />
+                    </div>
+                    
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 relative z-10 text-white">
+                        <User size={18} className="text-passport-teal" /> Pilot License
+                    </h3>
+
+                    {user ? (
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-4 mb-4">
+                                {user.photoURL && (
+                                    <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-passport-teal" />
+                                )}
+                                <div>
+                                    <p className="font-bold text-white text-lg">{user.displayName}</p>
+                                    <p className="text-sm text-white/50">{user.email}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-passport-teal bg-passport-teal/10 px-3 py-1 rounded-full w-fit mb-4 border border-passport-teal/20">
+                                <CheckCircle size={12} /> Cloud Sync Active
+                            </div>
+                            <button 
+                                onClick={logout}
+                                className="w-full py-2 bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 border border-white/10 rounded-lg transition flex items-center justify-center gap-2 text-sm font-bold"
+                            >
+                                <LogOut size={16} /> Sign Out
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="relative z-10">
+                            <p className="text-sm text-white/70 mb-4">
+                                Sign in to sync your stamps, rank, and favorites across devices. Never lose your progress.
+                            </p>
+                            <button 
+                                onClick={() => login(localDataForSync)}
+                                className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="G" />
+                                Sign in with Google
+                            </button>
+                        </div>
+                    )}
+                </section>
+
+                <hr className="border-white/10" />
                 
                 {/* --- HOME BASE SECTION --- */}
                 <section>

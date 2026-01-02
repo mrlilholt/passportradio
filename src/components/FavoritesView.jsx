@@ -1,5 +1,5 @@
 import React from 'react';
-import { Book, Settings, Stamp, Share2, Globe, Heart, Radio, VolumeX } from 'lucide-react';
+import { Book, Settings, Stamp, Share2, Globe, Heart, Radio, VolumeX, Trophy } from 'lucide-react';
 import PassportBook from './PassportBook';
 
 const FavoritesView = ({ 
@@ -49,6 +49,13 @@ const FavoritesView = ({
                     <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
                         <Book className="text-passport-teal" /> My Passport
                     </h2>
+                    <button 
+                    onClick={() => setActiveTab('leaderboard')}
+                    className="w-full mt-4 py-3 bg-gradient-to-r from-yellow-600/20 to-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-500/20 transition group"
+                >
+                    <Trophy size={20} className="text-yellow-400 group-hover:scale-110 transition" />
+                    <span className="font-bold text-yellow-100">View Global Rankings</span>
+                </button>
                     <div className="flex gap-2">
                         <button onClick={() => setShowPassportProfile(true)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition border border-white/10">
                             <Settings size={18} />

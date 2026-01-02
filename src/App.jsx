@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Compass, Search, Trophy, Book, Download, MapPin, Globe } from 'lucide-react';
+import { Compass, Search, Trophy, Book, Download, MapPin, Globe, User } from 'lucide-react';
 
 // Data
 import { cities } from './data/cities';
@@ -11,12 +11,20 @@ import PlayerView from './components/PlayerView';
 import SearchView from './components/SearchView';
 import GameView from './components/GameView';
 import FavoritesView from './components/FavoritesView';
+import LeaderboardView from './components/LeaderboardView';
 import SettingsPage from './components/Settings';
 import GlobeView from './components/GlobeView';
 import { playStampSound } from './utils/audio';
 import FlyoverTransition from './components/FlyoverTransition';
+// 👇 Firebase & Auth Imports
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { db } from './firebase';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 const App = () => {
+    // 👇 Get User Context
+    const { user } = useAuth();
+
     // --- STATE ---
     const [activeTab, setActiveTab] = useState('discover');
     const [currentCity, setCurrentCity] = useState(cities.find(c => c.name === "Tashkent") || cities[0]);
@@ -42,7 +50,8 @@ const App = () => {
     const [visitHistory, setVisitHistory] = useState([cities.find(c => c.name === "Tashkent") || cities[0]]);
     const [isFlying, setIsFlying] = useState(false);
     const [flyTarget, setFlyTarget] = useState(null);
-
+    const [travelLogs, setTravelLogs] = useState(() => JSON.parse(localStorage.getItem('passport_travel_logs')) || {});
+    
     // --- GAME STATE ---
     const [gameScore, setGameScore] = useState(0);
     const [gameRoundData, setGameRoundData] = useState(null);
@@ -52,10 +61,7 @@ const App = () => {
         return savedScore ? parseInt(savedScore, 10) : 0;
     });
 
-    // --- TRAVEL LOGS ---
-    const [travelLogs, setTravelLogs] = useState(() => {
-        return JSON.parse(localStorage.getItem('passport_travel_logs')) || {};
-    });
+    
     const [showHomelandInvite, setShowHomelandInvite] = useState(false);
 
     // --- PASSPORT ---
@@ -63,6 +69,33 @@ const App = () => {
     const [userHome, setUserHome] = useState(localStorage.getItem('userHome') || '');
 
     // --- EFFECTS ---
+
+    // 🌟 CLOUD SYNC: Listen for DB changes
+    useEffect(() => {
+        if (!user) return; 
+        const userRef = doc(db, "users", user.uid);
+        const unsubscribe = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.favorites) setFavorites(data.favorites);
+                if (data.travelLogs) setTravelLogs(data.travelLogs);
+                if (data.userHome) setUserHome(data.userHome);
+                if (data.highScore) setHighScore(data.highScore);
+            }
+        });
+        return () => unsubscribe();
+    }, [user]);
+
+    // 🌟 CLOUD SAVE HELPER
+    const saveToCloud = async (field, value) => {
+        if (user) {
+            try {
+                const userRef = doc(db, "users", user.uid);
+                await updateDoc(userRef, { [field]: value });
+            } catch (e) { /* ignore offline errors */ }
+        }
+    };
+
 // ✈️ TELEPORT HANDLER
 const handlePassportTravel = (city) => {
     // 1. Start Animation
@@ -98,36 +131,55 @@ const handlePassportTravel = (city) => {
     }, []);
 
     // 2. Track Listening Time & Play Sound Effects 🔊
-useEffect(() => {
-    let interval;
-    if (isPlaying && currentStation) {
-        interval = setInterval(() => {
-            setTravelLogs(prev => {
-                const country = currentStation.country || "International";
-                const iso = currentStation.countrycode || "xx";
-                const previousData = prev[country];
+    useEffect(() => {
+        let interval;
+        if (isPlaying && currentStation) {
+            interval = setInterval(() => {
+                setTravelLogs(prev => {
+                    const country = currentStation.country || "International";
+                    const iso = currentStation.countrycode || "xx";
+                    const previousData = prev[country];
 
-                // Handle legacy data structure
-                const currentSeconds = (typeof previousData === 'number') ? previousData : (previousData?.time || 0);
-                const newTime = currentSeconds + 1;
+                    // Handle legacy data structure
+                    const currentSeconds = (typeof previousData === 'number') ? previousData : (previousData?.time || 0);
+                    const newTime = currentSeconds + 1;
 
-                // 🔊 SOUND TRIGGER LOGIC (Synthesized)
-                if (newTime === 30 || newTime === 3600 || newTime === 18000) {
-                    playStampSound();
+                    // 🔊 SOUND TRIGGER LOGIC
+                    if (newTime === 30 || newTime === 3600 || newTime === 18000) {
+                        playStampSound();
+                        if (navigator.vibrate) navigator.vibrate(200);
+                    }
 
-                    // Vibration for mobile
-                    if (navigator.vibrate) navigator.vibrate(200);
-                }
+                    // Create new state
+                    const newEntry = { time: newTime, iso: iso };
+                    const newLogs = { ...prev, [country]: newEntry };
+                    
+                    // Save Local
+                    localStorage.setItem('passport_travel_logs', JSON.stringify(newLogs));
+                    
+                    // 🌟 LEADERBOARD SYNC (Every 30s)
+                    if (user && newTime % 30 === 0) {
+                        saveToCloud('travelLogs', newLogs);
+                        
+                        // Calculate Total Time
+                        const totalSeconds = Object.values(newLogs).reduce((acc, curr) => {
+                            const t = typeof curr === 'number' ? curr : curr.time;
+                            return acc + t;
+                        }, 0);
+                        saveToCloud('totalTime', totalSeconds);
 
-                const newEntry = { time: newTime, iso: iso };
-                const newLogs = { ...prev, [country]: newEntry };
-                localStorage.setItem('passport_travel_logs', JSON.stringify(newLogs));
-                return newLogs;
-            });
-        }, 1000);
-    }
-    return () => clearInterval(interval);
-}, [isPlaying, currentStation]);
+                        // Sync Profile
+                        saveToCloud('highScore', highScore);
+                        saveToCloud('displayName', user.displayName);
+                        saveToCloud('photoURL', user.photoURL);
+                    }
+                    
+                    return newLogs;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isPlaying, currentStation, user, highScore]);
 
     // 3. Splash Timer
     useEffect(() => {
@@ -153,7 +205,16 @@ useEffect(() => {
     };
 
     // 5. Persistence
-    useEffect(() => { localStorage.setItem('passport_favs', JSON.stringify(favorites)); }, [favorites]);
+    useEffect(() => { 
+        localStorage.setItem('passport_favs', JSON.stringify(favorites)); 
+        if (user) saveToCloud('favorites', favorites);
+    }, [favorites, user]);
+
+    // Persist Home Base Changes
+    useEffect(() => {
+        if (userHome) localStorage.setItem('userHome', userHome);
+        if (user) saveToCloud('userHome', userHome);
+    }, [userHome, user]);
     useEffect(() => { localStorage.setItem('passport_recents', JSON.stringify(recents)); }, [recents]);
 
     // 6. Dynamic Background AND History Tracking
@@ -340,7 +401,11 @@ useEffect(() => {
         setGameScore(prev => {
             if (isCorrect) {
                 const newScore = prev + 1;
-                if (newScore > highScore) { setHighScore(newScore); localStorage.setItem('passport_highscore', newScore); }
+                if (newScore > highScore) { 
+                    setHighScore(newScore); 
+                    localStorage.setItem('passport_highscore', newScore); 
+                    if (user) saveToCloud('highScore', newScore);
+                }
                 return newScore;
             } else return Math.max(0, prev - 1);
         });
@@ -414,6 +479,21 @@ useEffect(() => {
                     <button onClick={handleTeleport} className="bg-passport-teal text-slate-900 px-3 md:px-6 py-2 rounded-full font-bold hover:bg-teal-300 transition shadow-[0_0_15px_rgba(45,212,191,0.5)] flex items-center gap-2 text-sm md:text-base">
                         <Globe size={18} /><span className="hidden md:inline">TELEPORT</span>
                     </button>
+                    {/* 2. User Avatar (To the Right) */}
+                    {user && (
+                        <button 
+                            onClick={() => setShowPassportProfile(true)}
+                            className="w-9 h-9 rounded-full border border-white/20 overflow-hidden shadow-lg active:scale-95 transition hover:border-passport-teal"
+                        >
+                            {user.photoURL ? (
+                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-slate-700 flex items-center justify-center">
+                                    <User size={16} />
+                                </div>
+                            )}
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -468,8 +548,15 @@ useEffect(() => {
                             />
                         )}
 
-                        {activeTab === 'favorites' && (
-                            <FavoritesView 
+                        {activeTab === 'leaderboard' && (
+                    <LeaderboardView 
+                        currentUser={user} 
+                        onBack={() => setActiveTab('favorites')} 
+                    />
+                )}
+
+                {activeTab === 'favorites' && (
+                    <FavoritesView 
                                 favorites={favorites} 
                                 removeFavorite={removeFavorite} 
                                 setCurrentStation={setCurrentStation}
@@ -533,7 +620,9 @@ useEffect(() => {
                 <SettingsPage 
                     userHome={userHome} 
                     setUserHome={setUserHome} 
-                    onClose={() => setShowPassportProfile(false)} 
+                    onClose={() => setShowPassportProfile(false)}
+                    // 👇 Pass data for sync
+                    localDataForSync={{ favorites, travelLogs, userHome, highScore }} 
                 />
             )}
             
@@ -541,4 +630,10 @@ useEffect(() => {
     );
 };
 
-export default App;
+const AppWrapper = () => (
+    <AuthProvider>
+        <App />
+    </AuthProvider>
+);
+
+export default AppWrapper;
