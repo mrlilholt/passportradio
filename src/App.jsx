@@ -12,6 +12,7 @@ import SearchView from './components/SearchView';
 import GameView from './components/GameView';
 import FavoritesView from './components/FavoritesView';
 import SettingsPage from './components/Settings';
+import GlobeView from './components/GlobeView';
 
 const App = () => {
     // --- STATE ---
@@ -441,6 +442,15 @@ const App = () => {
                                 currentStation={currentStation}
                             />
                         )}
+                        {activeTab === 'map' && (
+                            <GlobeView 
+                              cities={cities} 
+                              onSelectCity={(city) => {
+                               setCurrentCity(city);
+                               setActiveTab('discover'); // Switch to player after selection
+                               }} 
+                           />
+                        )}
                     </>
                 )}
             </main>
@@ -449,6 +459,10 @@ const App = () => {
             <nav className="relative z-50 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 p-2 shrink-0">
                 <div className="flex justify-around items-center max-w-md mx-auto">
                     <button onClick={() => setActiveTab('discover')} className={`flex flex-col items-center p-2 transition ${activeTab === 'discover' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Compass size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Discover</span></button>
+                    
+                    {/* NEW MAP BUTTON */}
+                    <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center p-2 transition ${activeTab === 'map' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Globe size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Map</span></button>
+                    
                     <button onClick={() => setActiveTab('search')} className={`flex flex-col items-center p-2 transition ${activeTab === 'search' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Search size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Search</span></button>
                     <button onClick={() => setActiveTab('game')} className={`flex flex-col items-center p-2 transition ${activeTab === 'game' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Trophy size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Game</span></button>
                     <button onClick={() => setActiveTab('favorites')} className={`flex flex-col items-center p-2 transition relative ${activeTab === 'favorites' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}>
