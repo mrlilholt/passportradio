@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle, Clock, Home, X, Tent, Castle, FlagTriangleRight, Stamp, Share2 } from 'lucide-react';
+import { Play, Pause, Globe, Heart, SkipForward, SkipBack, Search, MapPin, Radio, Volume2, VolumeX, Compass, Book, Loader, Download, Trophy, AlertCircle, Clock, Home, X, Tent, Castle, FlagTriangleRight, Stamp, Share2, Settings } from 'lucide-react';
 import { cities, genres } from './data/cities';
-
+// Remove: import Passport from './components/Passport';
+import SettingsPage from './components/Settings'; // Add this instead
 // ==========================================
 // 1. SUB-COMPONENTS (Moved Outside App)
 // ==========================================
@@ -274,8 +275,99 @@ const PlayerView = ({ currentStation, currentCity, isPlaying, setIsPlaying, togg
         </div>
     </div>
 );
+// ==========================================
+// SETTINGS / PASSPORT PROFILE COMPONENT
+// ==========================================
 
-const FavoritesView = ({ favorites, removeFavorite, setCurrentStation, setIsPlaying, setActiveTab, setCurrentCity, showStampBook, setShowStampBook, travelLogs }) => {
+const Passport = ({ userHome, setUserHome, onClose }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    // Filter cities so users can search for their "Home Base"
+    const filteredCities = cities.filter(c => 
+        c.city.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        c.country.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div className="fixed inset-0 z-[60] bg-passport-dark/95 backdrop-blur-xl flex flex-col animate-fade-in">
+             {/* Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Settings className="text-passport-teal" /> Passport Settings
+                </h2>
+                <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition">
+                    <X size={20} />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                {/* Home Base Section */}
+                <section>
+                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                        <Home size={18} className="text-passport-purple" /> Home Base
+                    </h3>
+                    <p className="text-sm text-white/60 mb-4">
+                        Set your current location. This is used to calculate distances in the "Guess the Station" game.
+                    </p>
+                    
+                    {/* Search Input */}
+                    <div className="relative mb-3">
+                        <div className="absolute left-3 top-3 text-white/40"><Search size={16} /></div>
+                        <input 
+                            type="text" 
+                            placeholder="Search your city..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-passport-teal transition placeholder:text-white/20"
+                        />
+                    </div>
+
+                    {/* City List */}
+                    <div className="h-48 overflow-y-auto border border-white/5 rounded-xl bg-black/20 custom-scrollbar">
+                        {filteredCities.slice(0, 50).map(city => (
+                            <button
+                                key={city.city}
+                                onClick={() => setUserHome(city)}
+                                className={`w-full text-left p-3 border-b border-white/5 flex items-center justify-between hover:bg-white/5 transition ${userHome?.city === city.city ? 'bg-passport-teal/20 text-passport-teal' : 'text-white/70'}`}
+                            >
+                                <span className="text-sm font-medium">{city.city}, {city.country}</span>
+                                {userHome?.city === city.city && <MapPin size={16} />}
+                            </button>
+                        ))}
+                    </div>
+                </section>
+
+                <hr className="border-white/10" />
+
+                {/* Support Section */}
+                <section>
+                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                        <Heart size={18} className="text-passport-pink" /> Support the Project
+                    </h3>
+                    <p className="text-sm text-white/60 mb-4">
+                        Passport Radio is a free project to help people explore the world through sound.
+                    </p>
+                    <a 
+                        href="https://ko-fi.com" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-2 bg-[#FF5E5B] text-white font-bold py-3 rounded-xl hover:bg-[#ff7572] transition shadow-lg hover:shadow-red-500/20"
+                    >
+                        <Heart size={18} fill="currentColor" />
+                        Buy me a Coffee
+                    </a>
+                </section>
+                
+                <div className="text-center text-xs text-white/30 pt-8 pb-4">
+                    Passport Radio v1.0 • Built with React & Vite
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const FavoritesView = ({ favorites, removeFavorite, setCurrentStation, setIsPlaying, setActiveTab, showStampBook, setShowStampBook, travelLogs, setShowPassportProfile, showHomelandInvite, setShowHomelandInvite, currentStation }) => {
+    // Group favorites by country
     const groupedFavorites = favorites.reduce((groups, station) => {
         const country = station.country || "International";
         if (!groups[country]) groups[country] = [];
@@ -288,10 +380,64 @@ const FavoritesView = ({ favorites, removeFavorite, setCurrentStation, setIsPlay
         <div className="flex-1 w-full h-full relative">
             {showStampBook && <PassportBook onClose={() => setShowStampBook(false)} travelLogs={travelLogs} />}
             <div className="w-full h-full overflow-y-auto pb-24 p-4 animate-fade-in">
+                {/* Header */}
                 <div className="mb-6 sticky top-0 bg-slate-900/95 backdrop-blur z-10 py-2 border-b border-white/10 flex justify-between items-center">
-                    <h2 className="text-2xl font-bold flex items-center gap-2 text-white"><Book className="text-passport-teal" /> My Passport</h2>
-                    <button onClick={() => setShowStampBook(true)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition text-white"><Stamp size={14} className="text-passport-teal" /> View Stamps</button>
+                    <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
+                        <Book className="text-passport-teal" /> My Passport
+                    </h2>
+                    <div className="flex gap-2">
+                        <button onClick={() => setShowPassportProfile(true)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition border border-white/10">
+                            <Settings size={18} />
+                        </button>
+                        <button onClick={() => setShowStampBook(true)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition text-white">
+                            <Stamp size={14} className="text-passport-teal" /> Stamps
+                        </button>
+                    </div>
                 </div>
+
+                {/* 🌟 NEW: HOMELAND SHARE BANNER */}
+                {showHomelandInvite && currentStation && (
+                    <div className="mb-6 bg-gradient-to-r from-passport-teal/20 to-blue-500/20 border border-passport-teal/50 rounded-xl p-4 animate-bounce-in relative overflow-hidden">
+                        <div className="flex items-start gap-4 relative z-10">
+                            <div className="bg-passport-teal text-black p-3 rounded-full shadow-lg shadow-passport-teal/20">
+                                <Share2 size={24} />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-white mb-1">Rep Your Roots! 🌍</h3>
+                                <p className="text-sm text-white/70 mb-3">
+                                    You've been vibing to <span className="text-passport-teal font-bold">{currentStation.country}</span> for a while. Share the love?
+                                </p>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => {
+                                            if (navigator.share) {
+                                                navigator.share({
+                                                    title: 'Passport Radio',
+                                                    text: `Vibing to ${currentStation.country} on Passport Radio! 🎧✈️`,
+                                                    url: 'https://passportradio.netlify.app'
+                                                });
+                                                setShowHomelandInvite(false); // Dismiss after sharing
+                                            }
+                                        }}
+                                        className="bg-passport-teal text-black text-xs font-bold px-4 py-2 rounded-full hover:scale-105 transition"
+                                    >
+                                        Share Now
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowHomelandInvite(false)}
+                                        className="text-white/40 text-xs font-bold px-3 py-2 hover:text-white transition"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Background Decor */}
+                        <Globe className="absolute -right-4 -bottom-4 text-passport-teal/10 rotate-12" size={100} />
+                    </div>
+                )}
+
+                {/* Favorites List Logic */}
                 {favorites.length === 0 ? (
                     <div className="text-center opacity-50 mt-20 p-6 border border-dashed border-white/20 rounded-2xl">
                         <Heart size={48} className="mx-auto mb-4 text-white/20" />
@@ -309,14 +455,6 @@ const FavoritesView = ({ favorites, removeFavorite, setCurrentStation, setIsPlay
                                             setCurrentStation(station);
                                             setIsPlaying(true);
                                             setActiveTab('discover');
-                                            if (setCurrentCity) {
-                                                setCurrentCity({
-                                                    name: station.name.substring(0, 20),
-                                                    country: station.country || "World",
-                                                    iso: station.countrycode || "xx",
-                                                    lat: 0, lng: 0
-                                                });
-                                            }
                                         }} className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition active:scale-95">
                                             <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                                                 <img src={station.favicon} onError={(e) => e.target.style.display = 'none'} className="w-full h-full object-contain" alt="icon" />
@@ -366,6 +504,7 @@ const App = () => {
     const [slideDirection, setSlideDirection] = useState(0);
     const audioRef = useRef(null);
     const [showStampBook, setShowStampBook] = useState(false);
+    const [isHome, setIsHome] = useState(false);
 
     // --- GAME STATE ---
     const [gameScore, setGameScore] = useState(0);
@@ -380,7 +519,11 @@ const App = () => {
     const [travelLogs, setTravelLogs] = useState(() => {
         return JSON.parse(localStorage.getItem('passport_travel_logs')) || {};
     });
+    const [showHomelandInvite, setShowHomelandInvite] = useState(false);
 
+    // --- PASSPORT ---
+    const [showPassportProfile, setShowPassportProfile] = useState(false);
+const [userHome, setUserHome] = useState(localStorage.getItem('userHome') || '');
     // --- EFFECTS ---
 
     // 1. Find a Working API Server on Startup
@@ -397,6 +540,45 @@ const App = () => {
         };
         resolveServer();
     }, []);
+// Add this inside App.jsx
+
+  // Check for Homeland Match
+  // ==========================================
+  // ==========================================
+  // 🏠 WELCOME HOME ALERT (Safe Version)
+  // ==========================================
+  useEffect(() => {
+    // 1. Safety Check: If station is missing OR userHome is missing/null, stop.
+    if (!currentStation || !userHome) return;
+
+    // 2. Safe Name Extraction
+    let homeName = "";
+    
+    // Check if it is a simple string (Old Format)
+    if (typeof userHome === 'string') {
+        homeName = userHome;
+    } 
+    // Check if it is an object (New Format) AND not null
+    else if (typeof userHome === 'object') {
+        homeName = userHome.name || userHome.city || "";
+    }
+
+    // 3. Compare (Only if we found a home name)
+    const targetCity = (currentStation.city || "").toLowerCase();
+    const targetHome = homeName.toLowerCase();
+
+    if (targetHome && targetCity && (targetCity.includes(targetHome) || targetHome.includes(targetCity))) {
+       setIsHome(true);
+       
+       // Play Sound
+       const chime = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+       chime.volume = 0.5;
+       chime.play().catch(e => console.log("Audio play failed", e));
+
+       const timer = setTimeout(() => setIsHome(false), 5000);
+       return () => clearTimeout(timer);
+    }
+  }, [currentStation, userHome]);
 
     // 2. Track Listening Time
     useEffect(() => {
@@ -460,6 +642,52 @@ const App = () => {
             });
         }
     }, [currentStation?.stationuuid, isPlaying]);
+// ==========================================
+  // ==========================================
+  // ⏱️ HOMELAND SHARE TIMER (30 Seconds)
+  // ==========================================
+  useEffect(() => {
+    // Reset notification if station changes
+    if (!currentStation || !userHome) return;
+
+    // 1. Get User Home Data safely
+    const homeISO = (typeof userHome === 'object' && userHome.iso) ? userHome.iso.toLowerCase() : null;
+    const homeName = (typeof userHome === 'string' ? userHome : userHome.name || userHome.city || "").toLowerCase();
+
+    // 2. Get Station Data safely
+    const stationISO = (currentStation.countrycode || "").toLowerCase();
+    const stationCountry = (currentStation.country || "").toLowerCase();
+    const stationCity = (currentStation.city || "").toLowerCase();
+    
+    // 3. Robust Matching Logic
+    let isHomeBase = false;
+
+    // CHECK A: ISO Match (Strongest Match - e.g. "US" === "US")
+    if (homeISO && stationISO && homeISO === stationISO) {
+        isHomeBase = true;
+    } 
+    // CHECK B: Name Fuzzy Match (Fallback - e.g. City name inside Country name)
+    else if (homeName && (stationCountry.includes(homeName) || stationCity.includes(homeName) || homeName.includes(stationCountry))) {
+        isHomeBase = true;
+    }
+
+    let timer;
+    if (isHomeBase) {
+        // Start 30s timer
+        timer = setTimeout(() => {
+            setShowHomelandInvite(true);
+            // Optional: Play a subtle notification sound
+            const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            sound.volume = 0.2;
+            sound.play().catch(() => {});
+        }, 30000); // 30 seconds
+    } else {
+        // If they switch away from home, cancel the invite
+        setShowHomelandInvite(false);
+    }
+
+    return () => clearTimeout(timer);
+  }, [currentStation, userHome]);
 
     // 8. Fetch Stations
     const fetchStations = async () => {
@@ -627,6 +855,7 @@ const App = () => {
                             <Download size={20} />
                         </button>
                     )}
+                    
                     <div className="relative">
                         <button onClick={() => setShowCityMenu(!showCityMenu)} className="flex items-center gap-1 md:gap-2 bg-white/10 px-3 py-2 rounded-full hover:bg-white/20 transition border border-white/20 backdrop-blur-md text-sm md:text-base">
                             <MapPin size={16} className="text-passport-teal" /><span className="font-semibold truncate max-w-[100px] md:max-w-none">{currentCity.name}</span>
@@ -666,9 +895,24 @@ const App = () => {
                         {activeTab === 'discover' && <PlayerView currentStation={currentStation} currentCity={currentCity} isPlaying={isPlaying} setIsPlaying={setIsPlaying} toggleFavorite={toggleFavorite} favorites={favorites} stations={stations} changeStation={changeStation} isMuted={isMuted} setIsMuted={setIsMuted} volume={volume} setVolume={setVolume} filterGenre={filterGenre} setFilterGenre={setFilterGenre} swipeHandlers={swipeHandlers} slideDirection={slideDirection} />}
                         {activeTab === 'search' && <SearchView setCurrentCity={setCurrentCity} setActiveTab={setActiveTab} setFilterGenre={setFilterGenre} />}
                         {activeTab === 'game' && <GameView gameScore={gameScore} highScore={highScore} gameRoundData={gameRoundData} isGameLoading={isGameLoading} startNewGameRound={startNewGameRound} handleGameGuess={handleGameGuess} handleGameSkip={handleGameSkip} />}
-                        {activeTab === 'favorites' && <FavoritesView favorites={favorites} removeFavorite={removeFavorite} setCurrentStation={setCurrentStation} setIsPlaying={setIsPlaying} setActiveTab={setActiveTab} setCurrentCity={setCurrentCity} showStampBook={showStampBook} setShowStampBook={setShowStampBook} travelLogs={travelLogs} />}
-                    </>
-                )}
+                        {activeTab === 'favorites' && (
+    <FavoritesView 
+        favorites={favorites} 
+        removeFavorite={removeFavorite} 
+        setCurrentStation={setCurrentStation}
+        setIsPlaying={setIsPlaying}
+        setActiveTab={setActiveTab}
+        showStampBook={showStampBook}
+        setShowStampBook={setShowStampBook}
+        travelLogs={travelLogs}
+        setShowPassportProfile={setShowPassportProfile}
+        // 👇 Add these lines
+        showHomelandInvite={showHomelandInvite}
+        setShowHomelandInvite={setShowHomelandInvite}
+        currentStation={currentStation}
+    />
+)}                  </>
+                                          )}
             </main>
 
             {/* Navigation */}
@@ -677,10 +921,25 @@ const App = () => {
                     <button onClick={() => setActiveTab('discover')} className={`flex flex-col items-center p-2 transition ${activeTab === 'discover' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Compass size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Discover</span></button>
                     <button onClick={() => setActiveTab('search')} className={`flex flex-col items-center p-2 transition ${activeTab === 'search' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Search size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Search</span></button>
                     <button onClick={() => setActiveTab('game')} className={`flex flex-col items-center p-2 transition ${activeTab === 'game' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Trophy size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Game</span></button>
-                    <button onClick={() => setActiveTab('favorites')} className={`flex flex-col items-center p-2 transition ${activeTab === 'favorites' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}><Book size={24} /><span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Passport</span></button>
-                </div>
+<button onClick={() => setActiveTab('favorites')} className={`flex flex-col items-center p-2 transition relative ${activeTab === 'favorites' ? 'text-passport-teal' : 'text-white/50 hover:text-white'}`}>
+    <Book size={24} />
+    {/* 👇 Notification Dot */}
+    {showHomelandInvite && (
+        <span className="absolute top-2 right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
+    )}
+    <span className="text-[10px] mt-1 font-medium uppercase tracking-wider">Passport</span>
+</button>                </div>
             </nav>
             <audio ref={audioRef} src={currentStation?.url_resolved} onError={(e) => { console.log("Stream failed:", e); changeStation(1); }} onEnded={() => changeStation(1)} />
+              {/* Settings Modal (Previously Passport Profile) */}
+            {/* Settings Modal */}
+            {showPassportProfile && (
+                <SettingsPage 
+                    userHome={userHome} 
+                    setUserHome={setUserHome} 
+                    onClose={() => setShowPassportProfile(false)} 
+                />
+            )}
         </div>
     );
 };
