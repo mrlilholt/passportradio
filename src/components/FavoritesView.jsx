@@ -54,7 +54,7 @@ const FavoritesView = ({
                     className="w-full mt-4 py-3 bg-gradient-to-r from-yellow-600/20 to-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-500/20 transition group"
                 >
                     <Trophy size={20} className="text-yellow-400 group-hover:scale-110 transition" />
-                    <span className="font-bold text-yellow-100">View Global Rankings</span>
+                    <span className="font-bold text-yellow-100">TOP</span>
                 </button>
                     <div className="flex gap-2">
                         <button onClick={() => setShowPassportProfile(true)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition border border-white/10">

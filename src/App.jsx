@@ -70,6 +70,54 @@ const App = () => {
 
     // --- EFFECTS ---
 
+    // ☁️ SYNC: Real-time Data Listener (Syncs across devices)
+    useEffect(() => {
+        if (!user) return; // Stop if not logged in
+
+        // Reference to the user's profile in the Cloud
+        const userRef = doc(db, 'users', user.uid);
+        
+        // Listen for changes
+        const unsubscribe = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const cloudData = docSnap.data();
+                
+                // 1. Sync STAMPS (Travel Logs)
+                if (cloudData.travelLogs) {
+                    setTravelLogs(prev => {
+                        // Merge Cloud data with Local data (Cloud wins if there's a conflict)
+                        const merged = { ...prev, ...cloudData.travelLogs };
+                        // Update Local Storage so it works offline next time
+                        localStorage.setItem('passport_travel_logs', JSON.stringify(merged));
+                        return merged;
+                    });
+                }
+
+                // 2. Sync HIGH SCORE
+                if (cloudData.highScore) {
+                    setHighScore(prev => {
+                        // Keep whichever is higher (Local vs Cloud)
+                        const bestScore = Math.max(prev, cloudData.highScore);
+                        localStorage.setItem('passport_high_score', bestScore.toString());
+                        return bestScore;
+                    });
+                }
+                
+                // 3. Sync FAVORITES (Optional, if you want these synced too)
+                if (cloudData.favorites) {
+                    setFavorites(prev => {
+                        // Basic merge: combine both lists and remove duplicates
+                        const mergedFavs = [...new Set([...prev, ...cloudData.favorites])];
+                        localStorage.setItem('passport_favorites', JSON.stringify(mergedFavs));
+                        return mergedFavs;
+                    });
+                }
+            }
+        });
+
+        // Cleanup listener when user logs out
+        return () => unsubscribe();
+    }, [user]); // 👈 Re-run this whenever the user logs in/out
     // 🌟 CLOUD SYNC: Listen for DB changes
     useEffect(() => {
         if (!user) return; 
