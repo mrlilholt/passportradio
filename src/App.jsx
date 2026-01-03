@@ -36,7 +36,6 @@ const App = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [volume, setVolume] = useState(0.8);
     const [isMuted, setIsMuted] = useState(false);
-    const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('passport_favs')) || []);
     const [bgImage, setBgImage] = useState('');
     const [filterGenre, setFilterGenre] = useState(null);
     const [showCityMenu, setShowCityMenu] = useState(false);
@@ -49,9 +48,26 @@ const App = () => {
     const audioRef = useRef(null);
     const [showStampBook, setShowStampBook] = useState(false);
     const [isHome, setIsHome] = useState(false);
-const [visitHistory, setVisitHistory] = useState(() => JSON.parse(localStorage.getItem('passport_visit_history')) || [cities.find(c => c.name === "Tashkent") || cities[0]]);    const [isFlying, setIsFlying] = useState(false);
+    const [visitHistory, setVisitHistory] = useState(() => JSON.parse(localStorage.getItem('passport_visit_history')) || [cities.find(c => c.name === "Tashkent") || cities[0]]);    const [isFlying, setIsFlying] = useState(false);
     const [flyTarget, setFlyTarget] = useState(null);
-    const [travelLogs, setTravelLogs] = useState(() => JSON.parse(localStorage.getItem('passport_travel_logs')) || {});
+
+    // 1. 🛡️ SAFETY FIX: Crash-proof State Initialization
+    const [favorites, setFavorites] = useState(() => {
+        try {
+            const saved = localStorage.getItem('passport_favs');
+            // Ensure we only return a valid Array, otherwise return []
+            const parsed = saved ? JSON.parse(saved) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) { return []; }
+    });
+
+    const [travelLogs, setTravelLogs] = useState(() => {
+        try {
+            const saved = localStorage.getItem('passport_travel_logs');
+            const parsed = saved ? JSON.parse(saved) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) { return []; }
+    });
     
     // --- GAME STATE ---
     const [gameScore, setGameScore] = useState(0);
@@ -93,69 +109,97 @@ const [visitHistory, setVisitHistory] = useState(() => JSON.parse(localStorage.g
     }, [user]); // 👈 Runs once when 'user' changes (Login)
 
     // ☁️ SYNC: Real-time Data Listener (Syncs across devices)
+    // ☁️ SYNC: Real-time Data Listener (The ONLY Listener you need)
     useEffect(() => {
-        if (!user) return; // Stop if not logged in
+        if (!user) return;
 
-        // Reference to the user's profile in the Cloud
         const userRef = doc(db, 'users', user.uid);
         
-        // Listen for changes
         const unsubscribe = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
                 const cloudData = docSnap.data();
                 
-                // 1. Sync STAMPS (Travel Logs)
+                // 1. Sync STAMPS (Time Spent - MAP)
+                // 🛑 This now correctly treats it as an Object/Map, not an Array
                 if (cloudData.travelLogs) {
                     setTravelLogs(prev => {
-                        // Merge Cloud data with Local data (Cloud wins if there's a conflict)
-                        const merged = { ...prev, ...cloudData.travelLogs };
-                        // Update Local Storage so it works offline next time
-                        localStorage.setItem('passport_travel_logs', JSON.stringify(merged));
-                        return merged;
+                        // Merge Cloud Map with Local Map
+                        const safePrev = (typeof prev === 'object' && !Array.isArray(prev)) ? prev : {};
+                        const mergedLogs = { ...safePrev, ...cloudData.travelLogs };
+                        
+                        localStorage.setItem('passport_travel_logs', JSON.stringify(mergedLogs));
+                        return mergedLogs;
                     });
                 }
 
-                // 2. Sync HIGH SCORE
+                // 2. Sync HISTORY (Trips - ARRAY)
+                if (cloudData.visitHistory) {
+                    setVisitHistory(prev => {
+                        const safePrev = Array.isArray(prev) ? prev : [];
+                        const safeCloud = Array.isArray(cloudData.visitHistory) ? cloudData.visitHistory : [];
+                        
+                        // Merge Arrays and Deduplicate by timestamp
+                        const merged = [...safePrev, ...safeCloud];
+                        const uniqueHistory = Array.from(new Map(merged.map(item => [item.timestamp, item])).values());
+
+                        localStorage.setItem('passport_visit_history', JSON.stringify(uniqueHistory));
+                        return uniqueHistory;
+                    });
+                }
+
+                // 3. Sync HIGH SCORE
                 if (cloudData.highScore) {
                     setHighScore(prev => {
-                        // Keep whichever is higher (Local vs Cloud)
                         const bestScore = Math.max(prev, cloudData.highScore);
                         localStorage.setItem('passport_high_score', bestScore.toString());
                         return bestScore;
                     });
                 }
                 
-                // 3. Sync FAVORITES (Optional, if you want these synced too)
+                // 4. Sync FAVORITES
                 if (cloudData.favorites) {
                     setFavorites(prev => {
-                        // Basic merge: combine both lists and remove duplicates
-                        const mergedFavs = [...new Set([...prev, ...cloudData.favorites])];
-                        localStorage.setItem('passport_favorites', JSON.stringify(mergedFavs));
+                        const safePrev = Array.isArray(prev) ? prev : [];
+                        const safeCloud = Array.isArray(cloudData.favorites) ? cloudData.favorites : [];
+
+                        const allFavs = [...safePrev, ...safeCloud];
+                        
+                        // Deduplicate by Station UUID
+                        const uniqueMap = new Map();
+                        allFavs.forEach(station => {
+                            if (station && station.stationuuid) {
+                                uniqueMap.set(station.stationuuid, station);
+                            }
+                        });
+                        const mergedFavs = Array.from(uniqueMap.values());
+
+                        localStorage.setItem('passport_favs', JSON.stringify(mergedFavs)); 
                         return mergedFavs;
                     });
                 }
+                
+                // 5. Sync HOME COUNTRY
+                if (cloudData.homeCountry) {
+                    setUserHome(cloudData.homeCountry);
+                } else if (!cloudData.homeCountry && activeTab === 'favorites') {
+                    setShowHomelandInvite(true);
+                }
+            } else {
+                // Initialize new user
+                setDoc(doc(db, 'users', user.uid), {
+                    email: user.email,
+                    favorites: [],
+                    travelLogs: {}, // Initialize as Object
+                    visitHistory: [], // Initialize as Array
+                    highScore: 0
+                }, { merge: true });
             }
         });
 
-        // Cleanup listener when user logs out
-        return () => unsubscribe();
-    }, [user]); // 👈 Re-run this whenever the user logs in/out
-    // 🌟 CLOUD SYNC: Listen for DB changes
-    useEffect(() => {
-        if (!user) return; 
-        const userRef = doc(db, "users", user.uid);
-        const unsubscribe = onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.favorites) setFavorites(data.favorites);
-                if (data.travelLogs) setTravelLogs(data.travelLogs);
-                if (data.userHome) setUserHome(data.userHome);
-                if (data.highScore) setHighScore(data.highScore)
-                if (data.visitHistory) setVisitHistory(data.visitHistory);
-            }
-        });
         return () => unsubscribe();
     }, [user]);
+    
+  
 
    // 💾 Helper: Save data to Firebase
     const saveToCloud = async (field, value) => {
@@ -276,11 +320,12 @@ const handlePassportTravel = (city) => {
         setDeferredPrompt(null);
     };
 
-    // 5. Persistence
+    // 5. Persistence (Local Cache Only - Cloud saving is now handled manually in toggleFavorite)
     useEffect(() => { 
-        localStorage.setItem('passport_favs', JSON.stringify(favorites)); 
-        if (user) saveToCloud('favorites', favorites);
-    }, [favorites, user]);
+        if (Array.isArray(favorites)) {
+            localStorage.setItem('passport_favs', JSON.stringify(favorites)); 
+        }
+    }, [favorites]);
 
     // Persist Home Base Changes
     useEffect(() => {
@@ -368,9 +413,12 @@ const handlePassportTravel = (city) => {
     // 9. Fetch Stations
     const fetchStations = async () => {
         if (!apiServer) return;
+        
+        // 1. Loading State (Don't stop the music! 🎵)
         setIsLoading(true);
-        setStations([]);
-        setIsPlaying(false);
+        // setStations([]); // <--- DELETED (Prevents UI flashing)
+        // setIsPlaying(false); // <--- DELETED (This was killing your auto-play!)
+
         try {
             let params = `countrycode=${currentCity.iso}&limit=100&order=votes&hidebroken=true`;
             if (filterGenre) params += `&tag=${encodeURIComponent(filterGenre)}`;
@@ -390,8 +438,27 @@ const handlePassportTravel = (city) => {
 
             const finalStations = validStations.slice(0, 30);
             setStations(finalStations);
-            if (finalStations.length > 0) setCurrentStation(finalStations[0]);
-            else setCurrentStation(null);
+
+            // 🛡️ SMART AUTO-TUNE (Sticky Logic)
+            if (finalStations.length > 0) {
+                setCurrentStation(prev => {
+                    // Check if the currently playing station matches the country we just loaded.
+                    const isSameCountry = prev && (
+                        (prev.countrycode === currentCity.iso) || 
+                        (prev.country === currentCity.country)
+                    );
+
+                    // A. If it's the same country (Favorite), KEEP IT & ENSURE PLAYING
+                    if (isSameCountry) {
+                        return prev; 
+                    }
+
+                    // B. If we just flew here casually, Auto-Play the #1 Station
+                    return finalStations[0];
+                });
+            } else {
+                setCurrentStation(null);
+            }
 
         } catch (err) { console.error("Radio API Error:", err); }
         setIsLoading(false);
@@ -421,14 +488,46 @@ const handlePassportTravel = (city) => {
 
     const toggleFavorite = () => {
         if (!currentStation) return;
-        const exists = favorites.find(f => f.stationuuid === currentStation.stationuuid);
-        if (exists) setFavorites(favorites.filter(f => f.stationuuid !== currentStation.stationuuid));
-        else setFavorites([...favorites, currentStation]);
+        
+        // 🛡️ SAFETY: Ensure favorites is an array
+        const safeFavorites = Array.isArray(favorites) ? favorites : [];
+        const isFavorite = safeFavorites.some(f => f.stationuuid === currentStation.stationuuid);
+        let newFavorites;
+
+        if (isFavorite) {
+            newFavorites = safeFavorites.filter(f => f.stationuuid !== currentStation.stationuuid);
+        } else {
+            newFavorites = [...safeFavorites, currentStation];
+            
+            // Broadcast only on Add
+            broadcastAction(user, 'favorited', {
+                name: currentStation.country,
+                country: currentStation.country,
+                stationName: currentStation.name
+            });
+        }
+
+        // Update State & Local Storage
+        setFavorites(newFavorites);
+        localStorage.setItem('passport_favs', JSON.stringify(newFavorites));
+        
+        // ☁️ SAVE TO CLOUD IMMEDIATELY (Manual Save)
+        if (user) {
+            updateDoc(doc(db, 'users', user.uid), { favorites: newFavorites }).catch(e => console.error("Save failed", e));
+        }
     };
 
     const removeFavorite = (e, uuid) => {
         e.stopPropagation();
-        setFavorites(favorites.filter(f => f.stationuuid !== uuid));
+        const newFavorites = favorites.filter(f => f.stationuuid !== uuid);
+        
+        // Update State
+        setFavorites(newFavorites);
+        
+        // Save to Cloud
+        if (user) {
+            updateDoc(doc(db, 'users', user.uid), { favorites: newFavorites }).catch(e => console.error("Remove failed", e));
+        }
     };
 
     const handleTeleport = () => {

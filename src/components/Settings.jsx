@@ -6,15 +6,23 @@ import { useAuth } from '../context/AuthContext';
 const Settings = ({ userHome, setUserHome, onClose, localDataForSync }) => {
     const { user, login, logout } = useAuth();
     // Parse current home safely for the "Badge" display
+    // Parse current home safely for the "Badge" display
     const currentHomeDisplay = (() => {
         if (!userHome) return null;
+        
+        // 🛡️ FIX: Treat "poisoned" data as null so the UI shows the "Set Home" button
+        if (userHome === '[object Object]') return null;
+
         if (typeof userHome === 'string') return { name: userHome, country: '', iso: '' };
-        return userHome; // Object: { name, country, iso... }
+        return userHome; 
     })();
 
     // State for the edit/search mode
     const [tempHome, setTempHome] = useState(() => {
         try {
+            // 🛡️ FIX: Reset search if data is corrupted
+            if (userHome === '[object Object]') return null;
+
             if (typeof userHome === 'string' && !userHome.startsWith('{')) {
                 return { name: userHome, country: '', lat: 0, lng: 0 };
             }
