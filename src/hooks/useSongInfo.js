@@ -1,65 +1,81 @@
-// src/hooks/useSongInfo.js
 import { useState, useEffect } from 'react';
 
 export const useSongInfo = (currentStation) => {
-    const [songData, setSongData] = useState({ title: '', artist: '', cover: null });
+    const [cover, setCover] = useState(null);
 
     useEffect(() => {
-        if (!currentStation) return;
+        if (!currentStation) {
+            setCover(null);
+            return;
+        }
 
-        // Reset when station changes
-        setSongData({ title: 'Tuning in...', artist: currentStation.name, cover: null });
+        let isMounted = true;
 
-        // Function to fetch metadata from the Radio Browser API
-        // (Radio Browser creates a small socket/stream for metadata)
-        const fetchMetadata = async () => {
+        const fetchArtwork = async () => {
+            // 1. First choice: Use the Station's own favicon from the database
+            // (We check if it exists and is a valid URL)
+            if (currentStation.favicon && currentStation.favicon.length > 10) {
+                // If it's a high-quality image, just use it and stop.
+                // If you find database icons are too blurry, you can comment this 'return' out
+                // to let iTunes try to find a better one.
+                setCover(currentStation.favicon);
+                return; 
+            }
+
+            // 2. Prepare the search term for iTunes
+            // Remove "FM", "Radio", numbers, and bitrate info to get the core name
+            // Example: "Star Radio 102.5 (128kbps)" -> "Star"
+            const cleanName = currentStation.name
+                .replace(/\b(radio|fm|am|online|digital|streams?|hd|live)\b/gi, "") // Remove keywords
+                .replace(/[^a-zA-Z0-9 ]/g, "") // Remove symbols
+                .replace(/\s+/g, " ") // Collapse spaces
+                .trim();
+
+            if (cleanName.length < 2) {
+                setCover(null); // Name is too short (e.g. just "FM"), give up
+                return;
+            }
+
             try {
-                // 1. Get raw song info from Radio Browser stats
-                const res = await fetch(`https://at1.api.radio-browser.info/json/stations/byuuid/${currentStation.stationuuid}`);
-                const data = await res.json();
-                
-                if (data && data.length > 0 && data[0].lastcheckok) {
-                    // This api often has a 'clickcount' but sometimes has 'lastchecktime'
-                    // Note: Real-time metadata is tricky with standard HTML5 audio.
-                    // We often have to rely on the station name or third party streams.
+                // 3. Search iTunes for a PODCAST (Best for station logos)
+                const response = await fetch(
+                    `https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&media=podcast&limit=1`
+                );
+                const data = await response.json();
+
+                if (isMounted && data.results.length > 0) {
+                    const result = data.results[0];
+                    const resultName = result.collectionName || result.trackName;
                     
-                    // FALLBACK STRATEGY: 
-                    // Since direct metadata from HTML5 audio is hard without a proxy,
-                    // We will try to fetch from iTunes based on the Station Name if it's a specific artist station,
-                    // OR we just set a high-quality city image.
+                    // 4. 🛡️ STRICT MATCHING CHECK
+                    // We check if the iTunes result actually contains our search term.
+                    // This prevents "Jazz FM" searching "Jazz" and getting "Jazz Greats Album".
                     
-                    // However, let's try to query iTunes with the Station Name tags to get a vibe image
-                    searchItunes(currentStation.tags);
+                    const isRelevant = resultName.toLowerCase().includes(cleanName.toLowerCase()) || 
+                                       cleanName.toLowerCase().includes(resultName.toLowerCase());
+
+                    if (isRelevant) {
+                        // Use the high-res image (600x600)
+                        setCover(result.artworkUrl600 || result.artworkUrl100);
+                    } else {
+                        // iTunes result was too random (e.g. "Best of Rock" for "Rock 101")
+                        // Fallback to the low-quality favicon or null
+                        setCover(currentStation.favicon || null);
+                    }
+                } else {
+                    // No iTunes match? Use DB favicon
+                    setCover(currentStation.favicon || null);
                 }
-            } catch (e) {
-                console.error("Metadata fetch error", e);
+            } catch (error) {
+                console.warn("Artwork fetch failed", error);
+                setCover(currentStation.favicon || null);
             }
         };
 
-        const searchItunes = async (query) => {
-            if (!query) return;
-            // Clean query (take first tag)
-            const term = query.split(',')[0].trim();
-            if (term.length < 3) return;
+        fetchArtwork();
 
-            try {
-                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=1`);
-                const data = await res.json();
-                if (data.results.length > 0) {
-                    setSongData(prev => ({
-                        ...prev,
-                        cover: data.results[0].artworkUrl100.replace('100x100', '600x600') // Get High Res
-                    }));
-                }
-            } catch (e) {
-                // Fail silently
-            }
-        };
-
-        // Initial fetch
-        searchItunes(currentStation.tags);
-
+        return () => { isMounted = false; };
     }, [currentStation]);
 
-    return songData;
+    return { cover };
 };
