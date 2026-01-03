@@ -1,6 +1,7 @@
 import React from 'react';
 import { Book, Settings, Stamp, Share2, Globe, Heart, Radio, VolumeX, Trophy } from 'lucide-react';
 import PassportBook from './PassportBook';
+import { cities } from '../data/cities';
 
 const FavoritesView = ({ 
     favorites, 
@@ -27,6 +28,36 @@ const FavoritesView = ({
     }, {});
     
     const sortedCountries = Object.keys(groupedFavorites).sort();
+
+    // Helper: When playing a favorite, also update the location
+    const handlePlay = (station) => {
+        setCurrentStation(station);
+        setIsPlaying(true);
+        setActiveTab('discover');
+
+        // 1. Try to find a matching city in our 'cities' file (Best Experience)
+        // This ensures we get a high-quality background image and correct map coordinates
+        const matchedCity = cities.find(c => 
+            // Try to match exact city name first (if the station has one)
+            (station.city && c.name.toLowerCase() === station.city.toLowerCase()) || 
+            // Fallback: If no city match, just match the Country (e.g. Station is "France" -> Teleport to "Paris")
+            (c.country.toLowerCase() === (station.country || "").toLowerCase())
+        );
+
+        if (matchedCity) {
+            setCurrentCity(matchedCity);
+        } else {
+            // 2. If no match found, create a "Temporary City" from the station data
+            setCurrentCity({
+                name: station.city || station.country || "Unknown Location",
+                country: station.country || "Unknown Country",
+                iso: station.countrycode || "XX",
+                lat: station.geo_lat || 0,
+                lng: station.geo_long || 0,
+                population: 0
+            });
+        }
+    };
 
     return (
         <div className="flex-1 w-full h-full relative flex flex-col">
@@ -169,9 +200,32 @@ const FavoritesView = ({
                                 <div className="grid grid-cols-1 gap-2">
                                     {groupedFavorites[country].map((station) => (
                                         <div key={station.stationuuid} onClick={() => {
+                                            // 1. Play the music
                                             setCurrentStation(station);
                                             setIsPlaying(true);
+                                            
+                                            // 2. Find the matching City for this station
+                                            // (Requires 'cities' to be imported at the top of this file)
+                                            const targetCity = cities.find(c => 
+                                                (station.city && c.name.toLowerCase() === station.city.toLowerCase()) || 
+                                                (c.country.toLowerCase() === (station.country || "").toLowerCase())
+                                            );
+
+                                            // 3. Travel there (Trigger the flight animation & update location)
+                                            if (onTravel) {
+                                                onTravel(targetCity || {
+                                                    // Fallback: Create a temporary city if not found in our database
+                                                    name: station.city || station.country || "Unknown Location",
+                                                    country: station.country || "Unknown Country",
+                                                    lat: station.geo_lat || 0,
+                                                    lng: station.geo_long || 0,
+                                                    population: 0
+                                                });
+                                            }
+
+                                            // 4. Switch to Discover View
                                             setActiveTab('discover');
+                                            
                                         }} className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 flex items-center gap-3 cursor-pointer group transition active:scale-[0.98]">
                                             <div className="w-10 h-10 rounded-md bg-black/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative border border-white/5">
                                                 <img src={station.favicon} onError={(e) => e.target.style.display = 'none'} className="w-full h-full object-contain" alt="icon" />
