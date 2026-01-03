@@ -20,6 +20,8 @@ import FlyoverTransition from './components/FlyoverTransition';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
 import { doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
+import { broadcastAction } from './utils/broadcastService';
+import LiveTravelFeed from './components/LiveTravelFeed';
 
 const App = () => {
     // 👇 Get User Context
@@ -318,7 +320,7 @@ const handlePassportTravel = (city) => {
             return newHistory;
         });
     }, [currentCity, user]);
-    
+
     // 7. Track Recently Played
     useEffect(() => {
         if (currentStation && isPlaying) {
@@ -449,8 +451,16 @@ const handlePassportTravel = (city) => {
         let nextIndex;
         if (direction === 1) nextIndex = (currentIndex + 1) % stations.length;
         else nextIndex = (currentIndex - 1 + stations.length) % stations.length;
-        setCurrentStation(stations[nextIndex]);
+        const nextStation = stations[nextIndex]; // 👈 Capture the station first
+        setCurrentStation(nextStation);
         if (isPlaying) setIsPlaying(true);
+        
+        // 📡 BROADCAST TO THE WORLD
+        broadcastAction(user, 'listening', {
+            name: nextStation.country, 
+            country: nextStation.country,
+            stationName: nextStation.name
+        });
     };
 
     const swipeHandlers = useSwipeable({
@@ -706,7 +716,7 @@ const handlePassportTravel = (city) => {
 
             {/* Settings Modal */}
               {showPassportProfile && (
-                <SettingsPage 
+                <SettingsPage
                     userHome={userHome} 
                     setUserHome={setUserHome} 
                     onClose={() => setShowPassportProfile(false)}
@@ -714,7 +724,10 @@ const handlePassportTravel = (city) => {
                     localDataForSync={{ favorites, travelLogs, userHome, highScore }} 
                 />
             )}
-            
+            {/* 🟢 LIVE FEED TICKER */}
+            {activeTab !== 'game' && (
+                <LiveTravelFeed cities={cities} />
+            )}
         </div>
     );
 };
