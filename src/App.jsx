@@ -206,26 +206,29 @@ const App = () => {
   
 
    // 💾 Helper: Save data to Firebase (with throttling)
-    const lastCloudWrite = useRef({});
-    const saveToCloud = async (field, value) => {
+    // 💾 Optimized Batch Saver (Replaces saveToCloud)
+    const lastCloudBatchWrite = useRef(0);
+
+    const saveBatchToCloud = async (dataObject) => {
         if (!user) return;
         const now = Date.now();
         const ONE_MINUTE = 60000;
-        const lastWrite = lastCloudWrite.current[field] || 0;
-        
-        // Throttle: only write once per minute per field
-        if (now - lastWrite < ONE_MINUTE) {
-            console.log(`⏳ saveToCloud('${field}') throttled`);
+
+        // Throttle the WHOLE BATCH
+        if (now - lastCloudBatchWrite.current < ONE_MINUTE) {
+            console.log(`⏳ Batch save throttled`);
             return;
         }
-        
+
         try {
             const userRef = doc(db, 'users', user.uid);
-            await setDoc(userRef, { [field]: value }, { merge: true });
-            lastCloudWrite.current[field] = now;
-            console.log(`✅ saveToCloud('${field}') synced`);
+            // MERGE ALL FIELDS IN ONE WRITE 
+            await setDoc(userRef, dataObject, { merge: true });
+            
+            lastCloudBatchWrite.current = now;
+            console.log(`✅ Batch synced (${Object.keys(dataObject).length} fields)`);
         } catch (error) {
-            console.error("Error saving to cloud:", error);
+            console.error("Error saving batch:", error);
         }
     };
 
@@ -291,25 +294,33 @@ const handlePassportTravel = (city) => {
                     localStorage.setItem('passport_travel_logs', JSON.stringify(newLogs));
                     
                     // 🌟 LEADERBOARD SYNC (Every 30s)
+                    // ----------------------------------------------------
+                    // ⚡️ NEW BATCH UPDATE LOGIC
+                    // ----------------------------------------------------
                     if (user && newTime % 30 === 0) {
-                        saveToCloud('travelLogs', newLogs);
-                        
-                        // Calculate Total Time
+                        // 1. Calculate Total Time locally first
                         const totalSeconds = Object.values(newLogs).reduce((acc, curr) => {
                             const t = typeof curr === 'number' ? curr : curr.time;
                             return acc + t;
                         }, 0);
-                        saveToCloud('totalTime', totalSeconds);
 
-                        // Sync Profile
-                        saveToCloud('highScore', highScore);
-                        saveToCloud('displayName', user.displayName);
-                        saveToCloud('photoURL', user.photoURL);
+                        // 2. Prepare ONE object with all updates
+                        const updates = {
+                            travelLogs: newLogs,
+                            totalTime: totalSeconds,
+                            highScore: highScore,
+                            displayName: user.displayName,
+                            photoURL: user.photoURL
+                        };
+
+                        // 3. Send ONE write to Firebase
+                        saveBatchToCloud(updates);
                     }
                     
                     return newLogs;
                 });
             }, 1000);
+            
         }
         return () => clearInterval(interval);
     }, [isPlaying, currentStation, user, highScore]);
