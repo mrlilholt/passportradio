@@ -22,6 +22,8 @@ import { db } from './firebase';
 import { doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 import { broadcastAction } from './utils/broadcastService';
 import LiveTravelFeed from './components/LiveTravelFeed';
+import PassportSystem from './components/PassportSystem';
+import { useProgression } from './hooks/useProgression';
 
 const App = () => {
     // 👇 Get User Context
@@ -50,6 +52,7 @@ const App = () => {
     const [isHome, setIsHome] = useState(false);
     const [visitHistory, setVisitHistory] = useState(() => JSON.parse(localStorage.getItem('passport_visit_history')) || [cities.find(c => c.name === "Tashkent") || cities[0]]);    const [isFlying, setIsFlying] = useState(false);
     const [flyTarget, setFlyTarget] = useState(null);
+    const [questsEnabled, setQuestsEnabled] = useState(false); // 👈 Off by default
 
     // 1. 🛡️ SAFETY FIX: Crash-proof State Initialization
     const [favorites, setFavorites] = useState(() => {
@@ -85,6 +88,7 @@ const App = () => {
     const [showPassportProfile, setShowPassportProfile] = useState(false);
     const [userHome, setUserHome] = useState(localStorage.getItem('userHome') || '');
 
+    
     // --- EFFECTS ---
 // ⬆️ SYNC: Upload Local Data to Cloud on Login
     useEffect(() => {
@@ -722,7 +726,8 @@ const handlePassportTravel = (city) => {
                                 filterGenre={filterGenre} 
                                 setFilterGenre={setFilterGenre} 
                                 swipeHandlers={swipeHandlers} 
-                                slideDirection={slideDirection} 
+                                slideDirection={slideDirection}
+                                questsEnabled={questsEnabled} 
                             />
                         )}
 
@@ -730,7 +735,8 @@ const handlePassportTravel = (city) => {
                             <SearchView 
                                 setCurrentCity={setCurrentCity} 
                                 setActiveTab={setActiveTab} 
-                                setFilterGenre={setFilterGenre} 
+                                setFilterGenre={setFilterGenre}
+                                 
                             />
                         )}
 
@@ -742,7 +748,12 @@ const handlePassportTravel = (city) => {
                                 isGameLoading={isGameLoading} 
                                 startNewGameRound={startNewGameRound} 
                                 handleGameGuess={handleGameGuess} 
-                                handleGameSkip={handleGameSkip} 
+                                handleGameSkip={handleGameSkip}
+                                questsEnabled={questsEnabled} 
+                                toggleQuests={() => setQuestsEnabled(!questsEnabled)}
+                                onExitGame={() => setGameRoundData(null)}
+                                totalXP={1250}
+                                playerLevel={5} 
                             />
                         )}
 
