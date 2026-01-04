@@ -3,6 +3,7 @@ import { Play, Pause, Heart, SkipForward, Volume2, VolumeX, MapPin, Compass, Use
 import { useAuth } from '../context/AuthContext';
 import { genres } from '../data/cities';
 import { useSongInfo } from '../hooks/useSongInfo';
+import WeatherSystem from './WeatherSystem';
 
 // 1. Changed "=> (" to "=> {" to allow logic before returning
 const PlayerView = ({ currentStation, currentCity, isPlaying, setIsPlaying, toggleFavorite, favorites, stations, changeStation, isMuted, setIsMuted, volume, setVolume, filterGenre, setFilterGenre, swipeHandlers, slideDirection, onTravel, setShowPassportProfile }) => {
@@ -41,7 +42,19 @@ const PlayerView = ({ currentStation, currentCity, isPlaying, setIsPlaying, togg
                                 className={`w-full h-full object-cover p-0 group-hover:scale-105 transition duration-500 pointer-events-none select-none ${cover ? 'rounded-none blur-none' : 'object-contain p-6'}`} 
                             />
                             
-                            {isPlaying && <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded animate-pulse">LIVE</div>}
+                            {/* 🟢 NEW TOP-RIGHT WIDGET CONTAINER */}
+                            <div className="absolute top-3 right-3 flex items-center gap-2 z-30">
+                                {/* Weather Widget */}
+                                {currentStation && <WeatherSystem city={currentCity} />}
+                                
+                                {/* LIVE Indicator (Removed absolute positioning from here) */}
+                                {isPlaying && (
+                                    <div className="bg-red-600 text-white text-[10px] font-bold px-2 py-1.5 rounded-full animate-pulse leading-none shadow-lg flex items-center h-[26px]">
+                                        LIVE
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                         <div className="text-center mb-2 shrink-0">
                             <h1 className="text-xl font-bold truncate mb-1 text-white">{currentStation?.name || "No Station Found"}</h1>

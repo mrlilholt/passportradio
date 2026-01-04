@@ -50,3 +50,22 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+/* Add to index.css */
+@keyframes rain {
+  0% { background-position: 0 0; }
+  100% { background-position: 20% 100%; }
+}
+
+.bg-rain-pattern {
+  background-image: url('https://www.transparenttextures.com/patterns/diagmonds-light.png');
+  animation: rain 2s linear infinite;
+}
+
+.bg-snow-pattern {
+  background-image: url('https://www.transparenttextures.com/patterns/snow.png');
+  animation: rain 10s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin 8s linear infinite;
+}
