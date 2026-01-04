@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,10 @@ export const useProgression = () => {
     const [level, setLevel] = useState(1);
     const [xp, setXp] = useState(0);
     const [recentUnlock, setRecentUnlock] = useState(null);
+    
+    // Throttle ref - tracks last Firebase write time
+    const lastWriteTime = useRef(0);
+    const pendingUpdates = useRef({});
 
     // 1. LOAD PROFILE
     useEffect(() => {
@@ -51,12 +55,14 @@ export const useProgression = () => {
         loadProfile();
     }, [user]);
 
-    // 2. THE UPDATE ENGINE
+    // 2. THE UPDATE ENGINE (with throttling)
     const updateProgress = async (actionType, payload = {}) => {
         // 🛑 SAFETY GUARD: Don't run logic if user or stats aren't loaded yet
         if (!user || !stats) return; 
 
         const userRef = doc(db, 'users', user.uid);
+        const now = Date.now();
+        const ONE_MINUTE = 60000;
         
         let updates = {};
         let newStats = { ...stats };
@@ -130,13 +136,31 @@ export const useProgression = () => {
             setLevel(newLevel);
         }
 
-        // --- D. Commit ---
+        // --- D. Commit (with throttling) ---
         if (xpGain > 0) updates['xp'] = increment(xpGain);
         
         if (Object.keys(updates).length > 0) {
+            // Always update local state immediately
             setXp(newTotalXP);
             setStats(newStats);
-            await updateDoc(userRef, updates);
+            
+            // Accumulate updates for batching
+            pendingUpdates.current = { ...pendingUpdates.current, ...updates };
+            
+            // Only write to Firebase once per minute
+            const timeSinceLastWrite = now - lastWriteTime.current;
+            if (timeSinceLastWrite >= ONE_MINUTE || Object.keys(pendingUpdates.current).length > 10) {
+                try {
+                    await updateDoc(userRef, pendingUpdates.current);
+                    lastWriteTime.current = now;
+                    pendingUpdates.current = {};
+                    console.log('✅ Firebase synced (throttled)');
+                } catch (err) {
+                    console.error('Firebase write error:', err);
+                }
+            } else {
+                console.log(`⏳ Firebase write throttled (${Math.round((ONE_MINUTE - timeSinceLastWrite) / 1000)}s remaining)`);
+            }
         }
     };
 

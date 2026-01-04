@@ -205,12 +205,25 @@ const App = () => {
     
   
 
-   // 💾 Helper: Save data to Firebase
+   // 💾 Helper: Save data to Firebase (with throttling)
+    const lastCloudWrite = useRef({});
     const saveToCloud = async (field, value) => {
         if (!user) return;
+        const now = Date.now();
+        const ONE_MINUTE = 60000;
+        const lastWrite = lastCloudWrite.current[field] || 0;
+        
+        // Throttle: only write once per minute per field
+        if (now - lastWrite < ONE_MINUTE) {
+            console.log(`⏳ saveToCloud('${field}') throttled`);
+            return;
+        }
+        
         try {
             const userRef = doc(db, 'users', user.uid);
             await setDoc(userRef, { [field]: value }, { merge: true });
+            lastCloudWrite.current[field] = now;
+            console.log(`✅ saveToCloud('${field}') synced`);
         } catch (error) {
             console.error("Error saving to cloud:", error);
         }
