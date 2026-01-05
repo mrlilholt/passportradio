@@ -107,7 +107,7 @@ const Settings = ({ userHome, setUserHome, onClose, localDataForSync }) => {
                         <div className="relative z-10">
                             <div className="flex items-center gap-4 mb-4">
                                 {user.photoURL && (
-                                    <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-passport-teal" />
+                                    <img src={user.photoURL} alt="User" className="w-12 h-12 rounded-full border-2 border-passport-teal" referrerPolicy="no-referrer" />
                                 )}
                                 <div>
                                     <p className="font-bold text-white text-lg">{user.displayName}</p>

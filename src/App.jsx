@@ -320,7 +320,7 @@ const handlePassportTravel = (city) => {
                     return newLogs;
                 });
             }, 1000);
-            
+
         }
         return () => clearInterval(interval);
     }, [isPlaying, currentStation, user, highScore]);
@@ -358,7 +358,7 @@ const handlePassportTravel = (city) => {
     // Persist Home Base Changes
     useEffect(() => {
         if (userHome) localStorage.setItem('userHome', userHome);
-        if (user) saveToCloud('userHome', userHome);
+        if (user) saveBatchToCloud({ userHome });
     }, [userHome, user]);
     useEffect(() => { localStorage.setItem('passport_recents', JSON.stringify(recents)); }, [recents]);
 
@@ -388,7 +388,7 @@ const handlePassportTravel = (city) => {
             localStorage.setItem('passport_visit_history', JSON.stringify(newHistory));
             
             // 4. Save to Cloud (if logged in)
-            if (user) saveToCloud('visitHistory', newHistory);
+            if (user) saveBatchToCloud({ visitHistory: newHistory });
             
             return newHistory;
         });
@@ -630,7 +630,7 @@ const handlePassportTravel = (city) => {
                 if (newScore > highScore) { 
                     setHighScore(newScore); 
                     localStorage.setItem('passport_highscore', newScore); 
-                    if (user) saveToCloud('highScore', newScore);
+                    if (user) saveBatchToCloud({ highScore: newScore });
                 }
                 return newScore;
             } else return Math.max(0, prev - 1);
@@ -712,7 +712,7 @@ const handlePassportTravel = (city) => {
                             className="w-9 h-9 rounded-full border border-white/20 overflow-hidden shadow-lg active:scale-95 transition hover:border-passport-teal"
                         >
                             {user.photoURL ? (
-                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                                 <div className="w-full h-full bg-slate-700 flex items-center justify-center">
                                     <User size={16} />
