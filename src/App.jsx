@@ -208,25 +208,31 @@ const App = () => {
    // 💾 Helper: Save data to Firebase (with throttling)
     // 💾 Optimized Batch Saver (Replaces saveToCloud)
     const lastCloudBatchWrite = useRef(0);
+    const pendingCloudUpdates = useRef({});
 
     const saveBatchToCloud = async (dataObject) => {
         if (!user) return;
+        
+        // 1. Accumulate Data
+        pendingCloudUpdates.current = { ...pendingCloudUpdates.current, ...dataObject };
+
         const now = Date.now();
         const ONE_MINUTE = 60000;
 
-        // Throttle the WHOLE BATCH
+        // 2. Throttle the WHOLE BATCH
         if (now - lastCloudBatchWrite.current < ONE_MINUTE) {
-            console.log(`⏳ Batch save throttled`);
+            console.log(`⏳ Batch save throttled (Pending: ${Object.keys(pendingCloudUpdates.current).length} fields)`);
             return;
         }
 
         try {
             const userRef = doc(db, 'users', user.uid);
-            // MERGE ALL FIELDS IN ONE WRITE 
-            await setDoc(userRef, dataObject, { merge: true });
+            // 3. Write Accumulated Data
+            await setDoc(userRef, pendingCloudUpdates.current, { merge: true });
             
             lastCloudBatchWrite.current = now;
-            console.log(`✅ Batch synced (${Object.keys(dataObject).length} fields)`);
+            pendingCloudUpdates.current = {}; // Clear pending
+            console.log(`✅ Batch synced`);
         } catch (error) {
             console.error("Error saving batch:", error);
         }
@@ -539,9 +545,9 @@ const handlePassportTravel = (city) => {
         setFavorites(newFavorites);
         localStorage.setItem('passport_favs', JSON.stringify(newFavorites));
         
-        // ☁️ SAVE TO CLOUD IMMEDIATELY (Manual Save)
+        // ☁️ SAVE TO CLOUD (Throttled)
         if (user) {
-            updateDoc(doc(db, 'users', user.uid), { favorites: newFavorites }).catch(e => console.error("Save failed", e));
+            saveBatchToCloud({ favorites: newFavorites });
         }
     };
 
@@ -552,9 +558,9 @@ const handlePassportTravel = (city) => {
         // Update State
         setFavorites(newFavorites);
         
-        // Save to Cloud
+        // Save to Cloud (Throttled)
         if (user) {
-            updateDoc(doc(db, 'users', user.uid), { favorites: newFavorites }).catch(e => console.error("Remove failed", e));
+            saveBatchToCloud({ favorites: newFavorites });
         }
     };
 
