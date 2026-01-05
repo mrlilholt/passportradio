@@ -28,7 +28,8 @@ const QUEST_DEFINITIONS = [
         type: 'time'
     },
     { 
-        id: 'broadcast_hunter', 
+        // 👈 WAS: 'broadcast_hunter'
+        id: 'scout_rank_3', // ✅ CHANGE TO: 'scout_rank_3' (Matches badges.jsx)
         title: 'Broadcast Hunter', 
         target: 60, 
         unit: 'mins', 
