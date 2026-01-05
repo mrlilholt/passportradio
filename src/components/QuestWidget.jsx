@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Flame, CheckCircle, Shield } from 'lucide-react';
 
 // 🛠️ QUEST DEFINITIONS
@@ -50,38 +50,50 @@ const QuestWidget = ({ stats = {}, earnedBadges = [], isPlaying, onComplete }) =
     // 1. Find active quest
     const activeQuest = QUEST_DEFINITIONS.find(q => !earnedBadges.includes(q.id));
     
-    // 2. INTERNAL STOPWATCH (The missing piece!)
-    // This fills the gap between the 1-minute database updates
+    // 🛑 NEW: The "Turnstile" to prevent double-saving
+    const submittingRef = useRef(new Set());
+
+    // 2. INTERNAL STOPWATCH
     const [localSeconds, setLocalSeconds] = useState(0);
 
-    // A. RESET local counter whenever the REAL stats change (The Handshake)
+    // A. RESET local counter
     useEffect(() => {
         setLocalSeconds(0);
     }, [stats[activeQuest?.statKey]]);
 
-    // B. TICKER: Increment local seconds while playing
+    // B. TICKER
     useEffect(() => {
         if (!isPlaying || !activeQuest || activeQuest.type !== 'time') return;
-
         const interval = setInterval(() => {
             setLocalSeconds(prev => prev + 1);
         }, 1000);
-
         return () => clearInterval(interval);
     }, [isPlaying, activeQuest]);
 
 
-    // 3. CHECK FOR COMPLETION
-    // We check this inside the render logic mostly, but if you need a trigger:
+    // ----------------------------------------------------
+    // 3. CHECK FOR COMPLETION (THE FIX IS HERE)
+    // ----------------------------------------------------
     useEffect(() => {
          if (!activeQuest || activeQuest.type !== 'time') return;
+         
+         // If we are already saving this specific quest, STOP HERE.
+         if (submittingRef.current.has(activeQuest.id)) return;
+
          const baseMinutes = stats[activeQuest.statKey] || 0;
-         // Check if we crossed the line visually
+         
+         // Check if we crossed the line
          if (baseMinutes + (localSeconds/60) >= activeQuest.target) {
-             if (onComplete) onComplete();
+             
+             // 🔒 LOCK IT: Add to ref so we don't fire again next second
+             submittingRef.current.add(activeQuest.id);
+             
+             console.log("🏆 Quest Completed:", activeQuest.id);
+             
+             // Pass the ID up to the parent
+             if (onComplete) onComplete(activeQuest.id);
          }
     }, [localSeconds, stats, activeQuest, onComplete]);
-
 
     // 4. Completion State (All quests done)
     if (!activeQuest) {
