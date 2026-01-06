@@ -1,27 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { Book, X, Stamp, Share2, Trophy, Medal, Loader } from 'lucide-react'; 
+import React, { useState, useEffect, useMemo } from 'react';
+import { Book, X, Stamp, Share2, Trophy, Medal, Loader, Infinity } from 'lucide-react'; 
 import PassportStamp from './PassportStamp';
 import { cities } from '../data/cities';
-import { BADGES } from '../data/badges'; 
+// import { BADGES } from '../data/badges'; // We use getBadgeDetails now
 import { playTeleportSound, playErrorSound } from '../utils/audio';
 import PassportShareModal from './PassportShareModal'; 
 
-// 👇 NEW IMPORTS FOR DIRECT FETCHING
+// 👇 IMPORTS FOR DIRECT FETCHING & UTILS
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { getBadgeDetails } from '../utils/badgeUtils'; // 👈 Needed for grouping
 
 const PassportBook = ({ onClose, travelLogs, onTravel }) => {
     
-    const { user } = useAuth(); // 1. Get current user
+    const { user } = useAuth(); 
     const [activeTab, setActiveTab] = useState('stamps'); 
     const [showShareModal, setShowShareModal] = useState(false);
     
-    // 2. INTERNAL STATE FOR BADGES
+    // INTERNAL STATE FOR BADGES
     const [fetchedBadges, setFetchedBadges] = useState([]);
     const [loadingBadges, setLoadingBadges] = useState(true);
 
-    // 3. FETCH BADGES DIRECTLY FROM FIREBASE
+    // FETCH BADGES DIRECTLY FROM FIREBASE
     useEffect(() => {
         const fetchBadges = async () => {
             if (!user) return;
@@ -43,7 +44,45 @@ const PassportBook = ({ onClose, travelLogs, onTravel }) => {
         fetchBadges();
     }, [user]);
 
-    // 4. Sort logs by time (Existing Logic)
+    // 🧠 SMART BADGE GROUPING LOGIC
+    // ------------------------------------------------------
+    const processedBadges = useMemo(() => {
+        const uniqueList = [];
+        const paragonLevels = [];
+
+        // 1. Sort badges into "Standard" vs "Paragon"
+        fetchedBadges.forEach(badgeId => {
+            if (badgeId.startsWith('paragon_level_')) {
+                // Extract the number: "paragon_level_5" -> 5
+                const level = parseInt(badgeId.split('_')[2], 10);
+                if (!isNaN(level)) paragonLevels.push(level);
+            } else {
+                uniqueList.push(badgeId);
+            }
+        });
+
+        // 2. Convert standard IDs to full Badge Objects
+        // We use getBadgeDetails so we get the Icon, Label, etc.
+        let displayList = uniqueList.map(id => getBadgeDetails(id));
+
+        // 3. Create the "Stacked" Paragon Badge (if applicable)
+        if (paragonLevels.length > 0) {
+            const maxLevel = Math.max(...paragonLevels);
+            
+            displayList.push({
+                id: 'paragon_master', // Unique ID for React Key
+                label: `Paragon Level ${maxLevel}`,
+                description: `Reached the ${maxLevel}th tier of infinity.`,
+                icon: Infinity,
+                type: 'paragon',
+                xpReward: maxLevel * 500 // Show total XP earned from Paragon!
+            });
+        }
+
+        return displayList;
+    }, [fetchedBadges]);
+
+    // Sort logs by time (Existing Logic)
     const stats = Object.entries(travelLogs || {}).sort(([, a], [, b]) => {
         const timeA = typeof a === 'number' ? a : a.time;
         const timeB = typeof b === 'number' ? b : b.time;
@@ -64,9 +103,6 @@ const PassportBook = ({ onClose, travelLogs, onTravel }) => {
         }
     };
 
-    // 5. Filter the full BADGES list using the IDs we fetched
-    const myBadges = BADGES.filter(b => fetchedBadges.includes(b.id));
-
     return (
         <div className="absolute inset-0 z-50 flex flex-col bg-[#1a1a1a] text-white animate-fade-in font-sans">
             
@@ -79,7 +115,7 @@ const PassportBook = ({ onClose, travelLogs, onTravel }) => {
                     <div>
                         <h2 className="text-lg font-black uppercase tracking-wider text-white">My Passport</h2>
                         <div className="text-[10px] text-white/50 uppercase tracking-widest">
-                            {activeTab === 'stamps' ? `${stats.length} Visas Collected` : `${myBadges.length} Badges Earned`}
+                            {activeTab === 'stamps' ? `${stats.length} Visas Collected` : `${fetchedBadges.length} Badges Earned`}
                         </div>
                     </div>
                 </div>
@@ -155,32 +191,53 @@ const PassportBook = ({ onClose, travelLogs, onTravel }) => {
                     )
                 )}
 
-                {/* 🅱️ BADGES VIEW (Fetching Directly) */}
+                {/* 🅱️ BADGES VIEW (Using Processed Grouped List) */}
                 {activeTab === 'badges' && (
                     loadingBadges ? (
                         <div className="flex justify-center py-20 opacity-50">
                             <Loader className="animate-spin text-white" />
                         </div>
-                    ) : myBadges.length === 0 ? (
+                    ) : processedBadges.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-64 text-white/30 space-y-4">
                             <Trophy size={48} className="opacity-20" />
                             <p className="text-sm font-mono uppercase">No badges earned yet</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
-                            {myBadges.map((badge) => {
+                            {processedBadges.map((badge) => {
                                 const Icon = badge.icon;
+                                const isParagon = badge.type === 'paragon';
+
                                 return (
-                                    <div key={badge.id} className="bg-black/40 backdrop-blur-md border border-white/10 rounded-xl p-4 flex flex-col items-center text-center gap-3 hover:border-amber-400/50 transition-colors group">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400/20 to-orange-500/20 flex items-center justify-center border border-amber-400/30 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(251,191,36,0.1)]">
-                                            <Icon size={24} className="text-amber-400 drop-shadow-md" />
+                                    <div 
+                                        key={badge.id} 
+                                        className={`backdrop-blur-md border rounded-xl p-4 flex flex-col items-center text-center gap-3 transition-all group
+                                            ${isParagon 
+                                                ? 'bg-indigo-950/60 border-indigo-500/50 hover:border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.15)]' // 🟣 Paragon Style
+                                                : 'bg-black/40 border-white/10 hover:border-amber-400/50' // 🟡 Standard Style
+                                            }`}
+                                    >
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center border group-hover:scale-110 transition-transform
+                                            ${isParagon 
+                                                ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/30 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
+                                                : 'bg-gradient-to-br from-amber-400/20 to-orange-500/20 border-amber-400/30 shadow-[0_0_15px_rgba(251,191,36,0.1)]'
+                                            }`}
+                                        >
+                                            <Icon size={24} className={`drop-shadow-md ${isParagon ? 'text-indigo-300' : 'text-amber-400'}`} />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-sm text-white uppercase tracking-wide">{badge.label}</h3>
+                                            <h3 className={`font-bold text-sm uppercase tracking-wide ${isParagon ? 'text-indigo-200' : 'text-white'}`}>
+                                                {badge.label}
+                                            </h3>
                                             <p className="text-[10px] text-white/50 mt-1 leading-tight">{badge.description}</p>
                                         </div>
                                         <div className="mt-auto pt-2">
-                                            <span className="text-[9px] font-black bg-amber-400 text-black px-2 py-0.5 rounded shadow-sm">
+                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded shadow-sm
+                                                ${isParagon 
+                                                    ? 'bg-indigo-500 text-white' 
+                                                    : 'bg-amber-400 text-black'
+                                                }`}
+                                            >
                                                 +{badge.xpReward} XP
                                             </span>
                                         </div>
@@ -203,7 +260,7 @@ const PassportBook = ({ onClose, travelLogs, onTravel }) => {
                 <PassportShareModal 
                     travelLogs={travelLogs} 
                     onClose={() => setShowShareModal(false)}
-                    earnedBadges={fetchedBadges} // Use the locally fetched ones
+                    earnedBadges={fetchedBadges} // Pass raw IDs if share modal needs them
                 />
             )}
         </div>
