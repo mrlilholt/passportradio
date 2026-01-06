@@ -1,16 +1,12 @@
 import { 
-    Globe, MapPin, Flag,            // Exploration
-    Radio, Signal, RadioTower, Zap, Crown, // Scouting Ranks (Fixed: Broadcast -> RadioTower)
-    Headphones, Music,              // General Audio
-    Trophy, Compass, Map,           // Trivia
-    Moon, Sunrise, Calendar         // Time/Special (Fixed: Sun -> Sunrise if needed)
+    Radio, Signal, RadioTower,      // Early Ranks
+    Zap, Globe, Award, Crown,       // Elite Ranks
+    Sun, Infinity,                  // TITAN RANKS (New)
+    Moon, Sunrise, Calendar         // Specials
 } from 'lucide-react';
 
 export const BADGES = [
-    // ==========================================
-    // 1. SCOUTING RANKS (Listening Time)
-    // Used by QuestWidget to show "Next Rank"
-    // ==========================================
+    // ... (Keep your existing ranks 1-7) ...
     {
         id: 'scout_rank_1',
         label: 'Signal Rookie',
@@ -34,13 +30,13 @@ export const BADGES = [
         label: 'Broadcast Hunter',
         description: 'Listen for 1 hour total',
         xpReward: 500,
-        icon: RadioTower, // 👈 FIXED HERE
+        icon: RadioTower,
         type: 'scout_rank',
         condition: (stats) => (stats.totalMinutes || 0) >= 60
     },
     {
         id: 'scout_rank_4',
-        label: 'Wave Master',
+        label: 'Signal Master',
         description: 'Listen for 5 hours total',
         xpReward: 1000,
         icon: Zap,
@@ -49,93 +45,64 @@ export const BADGES = [
     },
     {
         id: 'scout_rank_5',
-        label: 'Radio Legend',
+        label: 'Global Monitor',
+        description: 'Listen for 12 hours total',
+        xpReward: 2500,
+        icon: Globe,
+        type: 'scout_rank',
+        condition: (stats) => (stats.totalMinutes || 0) >= 720
+    },
+    {
+        id: 'scout_rank_6',
+        label: 'Frequency Sage',
         description: 'Listen for 24 hours total',
         xpReward: 5000,
-        icon: Crown,
+        icon: Award,
         type: 'scout_rank',
         condition: (stats) => (stats.totalMinutes || 0) >= 1440
     },
-
-    // ==========================================
-    // 2. EXPLORATION (Countries Visited)
-    // ==========================================
     {
-        id: 'explorer_novice',
-        label: 'Tourist',
-        description: 'Visit 5 different countries',
-        xpReward: 150,
-        icon: Globe,
-        condition: (stats) => (stats.uniqueCountries || []).length >= 5
-    },
-    {
-        id: 'explorer_pro',
-        label: 'Nomad',
-        description: 'Visit 20 different countries',
-        xpReward: 600,
-        icon: MapPin,
-        condition: (stats) => (stats.uniqueCountries || []).length >= 20
-    },
-    {
-        id: 'explorer_elite',
-        label: 'Ambassador',
-        description: 'Visit 50 different countries',
-        xpReward: 1500,
-        icon: Flag,
-        condition: (stats) => (stats.uniqueCountries || []).length >= 50
+        id: 'scout_rank_7',
+        label: 'Airwave Legend',
+        description: 'Listen for 100 hours total',
+        xpReward: 10000,
+        icon: Crown,
+        type: 'scout_rank',
+        condition: (stats) => (stats.totalMinutes || 0) >= 6000
     },
 
     // ==========================================
-    // 3. TRIVIA (Skill & Knowledge)
+    // ⚔️ THE TITAN TIER (Days worth of listening)
     // ==========================================
     {
-        id: 'trivia_novice',
-        label: 'Smarty',
-        description: 'Win 5 Trivia rounds',
-        xpReward: 200,
-        icon: Compass,
-        condition: (stats) => (stats.triviaWins || 0) >= 5
+        id: 'scout_rank_8',
+        label: 'Sonic Titan',
+        description: 'Listen for 200 hours total',
+        xpReward: 20000,
+        icon: Sun,
+        type: 'scout_rank',
+        condition: (stats) => (stats.totalMinutes || 0) >= 12000
     },
     {
-        id: 'trivia_expert',
-        label: 'Geographer',
-        description: 'Win 25 Trivia rounds',
-        xpReward: 500,
-        icon: Map,
-        condition: (stats) => (stats.triviaWins || 0) >= 25
+        id: 'scout_rank_9',
+        label: 'Void Walker',
+        description: 'Listen for 500 hours total',
+        xpReward: 50000,
+        icon: Moon, // Or a specific Void icon
+        type: 'scout_rank',
+        condition: (stats) => (stats.totalMinutes || 0) >= 30000
     },
     {
-        id: 'trivia_master',
-        label: 'Cartographer',
-        description: 'Win 50 Trivia rounds',
-        xpReward: 1200,
-        icon: Trophy,
-        condition: (stats) => (stats.triviaWins || 0) >= 50
-    },
-
-    // ==========================================
-    // 4. STATION HOPPING (Variety)
-    // ==========================================
-    {
-        id: 'surfer',
-        label: 'Channel Surfer',
-        description: 'Visit 50 unique stations',
-        xpReward: 300,
-        icon: Headphones,
-        condition: (stats) => (stats.uniqueStations || []).length >= 50
-    },
-    {
-        id: 'dj',
-        label: 'Disc Jockey',
-        description: 'Visit 100 unique stations',
-        xpReward: 800,
-        icon: Music,
-        condition: (stats) => (stats.uniqueStations || []).length >= 100
+        id: 'scout_rank_10', // The Capstone
+        label: 'The Constant',
+        description: 'Listen for 1,000 hours total',
+        xpReward: 100000,
+        icon: Infinity,
+        type: 'scout_rank',
+        condition: (stats) => (stats.totalMinutes || 0) >= 60000
     },
 
-    // ==========================================
-    // 5. SPECIAL / SECRET (Time & Context)
-    // ==========================================
+    // ... (Keep your specials: Night Owl, etc.) ...
     {
         id: 'night_owl',
         label: 'Night Owl',
@@ -160,9 +127,7 @@ export const BADGES = [
         icon: Calendar,
         condition: (stats) => {
             const day = new Date().getDay();
-            return day === 0 || day === 6; // 0 is Sunday, 6 is Saturday
+            return day === 0 || day === 6; 
         }
     }
 ];
-
-export const getNextLevelXP = (level) => Math.floor(1000 * Math.pow(1.2, level - 1));

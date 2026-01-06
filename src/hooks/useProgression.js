@@ -15,13 +15,13 @@ export const useProgression = () => {
     const { user } = useAuth();
     
     // Local State
-    const [stats, setStats] = useState(null); // Start as null to track "Loading" state
+    const [stats, setStats] = useState(null);
     const [earnedBadges, setEarnedBadges] = useState([]);
     const [level, setLevel] = useState(1);
     const [xp, setXp] = useState(0);
     const [recentUnlock, setRecentUnlock] = useState(null);
     
-    // Throttle ref - tracks last Firebase write time
+    // Throttle ref
     const lastWriteTime = useRef(0);
     const pendingUpdates = useRef({});
 
@@ -38,11 +38,9 @@ export const useProgression = () => {
                     setStats(data.stats || {});
                     setEarnedBadges(data.badges || []);
                     setXp(data.xp || 0);
-                    // Auto-correct level
                     const currentXP = data.xp || 0;
                     setLevel(getLevelFromXP(currentXP));
                 } else {
-                    // Initialize new user
                     const initialStats = { totalMinutes: 0, uniqueCountries: [], uniqueStations: [], triviaWins: 0 };
                     await setDoc(docRef, {
                         xp: 0, level: 1, badges: [],
@@ -55,9 +53,8 @@ export const useProgression = () => {
         loadProfile();
     }, [user]);
 
-    // 2. THE UPDATE ENGINE (with throttling)
+    // 2. THE UPDATE ENGINE
     const updateProgress = async (actionType, payload = {}) => {
-        // 🛑 SAFETY GUARD: Don't run logic if user or stats aren't loaded yet
         if (!user || !stats) return; 
 
         const userRef = doc(db, 'users', user.uid);
@@ -98,35 +95,66 @@ export const useProgression = () => {
             xpGain += 50;
         }
 
-        // --- B. Check Badges (FIXED WITH SESSION STORAGE) ---
+        // --- B. Check Badges ---
         const context = {
             isNight: new Date().getHours() >= 1 && new Date().getHours() <= 4,
             isMorning: new Date().getHours() >= 5 && new Date().getHours() <= 8
         };
 
+        // B-1. Standard Badges (From the static list)
         BADGES.forEach(badge => {
-            // 1. Check Database (History)
             const hasInDb = earnedBadges.includes(badge.id);
-            
-            // 2. Check Browser Session (Immediate Memory)
-            // This key persists even if the component unmounts
             const sessionKey = `badge_unlocked_${user.uid}_${badge.id}`;
             const hasInSession = sessionStorage.getItem(sessionKey);
 
             if (!hasInDb && !hasInSession && badge.condition(newStats, context)) {
-                
-                // ✅ LOCK IT IMMEDIATELY
                 sessionStorage.setItem(sessionKey, 'true');
-
-                // Queue Database Updates
                 updates['badges'] = arrayUnion(badge.id);
                 xpGain += badge.xpReward;
                 
-                // Update UI
+                // Update Local UI instantly
                 setEarnedBadges(prev => [...prev, badge.id]);
-                setRecentUnlock(badge);
+                setRecentUnlock(badge); // Calls the popup
             }
         });
+
+        // 🆕 B-2. PARAGON LOGIC (Infinite Levels)
+        // ---------------------------------------------------------
+        const TITAN_CAP = 60000; // Rank 10 requirement (Minutes)
+        const PARAGON_STEP = 1440; // Every 24 hours after Cap
+
+        // Only run math if we are past the Titan Cap
+        if (newStats.totalMinutes > TITAN_CAP) {
+            // Calculate which Paragon Level we should have
+            const calculatedParagonLevel = Math.floor((newStats.totalMinutes - TITAN_CAP) / PARAGON_STEP) + 1;
+            
+            // Construct the ID
+            const paragonBadgeId = `paragon_level_${calculatedParagonLevel}`;
+            
+            // Check if we already have it
+            const hasParagonInDb = earnedBadges.includes(paragonBadgeId);
+            const paragonSessionKey = `badge_unlocked_${user.uid}_${paragonBadgeId}`;
+            const hasParagonInSession = sessionStorage.getItem(paragonSessionKey);
+
+            if (!hasParagonInDb && !hasParagonInSession) {
+                // ✅ UNLOCK PARAGON
+                sessionStorage.setItem(paragonSessionKey, 'true');
+                updates['badges'] = arrayUnion(paragonBadgeId);
+                xpGain += 500; // Fixed Reward for Paragon Levels
+
+                // Update Local UI
+                setEarnedBadges(prev => [...prev, paragonBadgeId]);
+                
+                // We construct a temporary object so the popup works
+                setRecentUnlock({
+                    id: paragonBadgeId,
+                    label: `Paragon Level ${calculatedParagonLevel}`,
+                    xpReward: 500,
+                    icon: 'Infinity' // handled by your utils
+                });
+            }
+        }
+        // ---------------------------------------------------------
 
         // --- C. Level Up Logic ---
         const newTotalXP = xp + xpGain;
@@ -140,14 +168,11 @@ export const useProgression = () => {
         if (xpGain > 0) updates['xp'] = increment(xpGain);
         
         if (Object.keys(updates).length > 0) {
-            // Always update local state immediately
             setXp(newTotalXP);
             setStats(newStats);
             
-            // Accumulate updates for batching
             pendingUpdates.current = { ...pendingUpdates.current, ...updates };
             
-            // Only write to Firebase once per minute
             const timeSinceLastWrite = now - lastWriteTime.current;
             if (timeSinceLastWrite >= ONE_MINUTE || Object.keys(pendingUpdates.current).length > 10) {
                 try {
@@ -158,8 +183,6 @@ export const useProgression = () => {
                 } catch (err) {
                     console.error('Firebase write error:', err);
                 }
-            } else {
-                console.log(`⏳ Firebase write throttled (${Math.round((ONE_MINUTE - timeSinceLastWrite) / 1000)}s remaining)`);
             }
         }
     };
@@ -167,7 +190,7 @@ export const useProgression = () => {
     return {
         level,
         xp,
-        stats: stats || {}, // Return empty obj if loading to prevent crashes
+        stats: stats || {}, 
         earnedBadges,
         recentUnlock,
         setRecentUnlock,
