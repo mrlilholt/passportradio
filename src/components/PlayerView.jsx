@@ -80,7 +80,7 @@ const PlayerView = ({
         const shareData = {
             title: 'Passport Radio',
             text: `Vibing to ${currentStation.name} in ${currentStation.country}! 🎧✈️`,
-            url: 'https://passportradio.netlify.app'
+            url: `https://passportradio.netlify.app?station=${currentStation.stationuuid}`
         };
 
         try {
