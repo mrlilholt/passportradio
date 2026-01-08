@@ -476,22 +476,29 @@ const handlePassportTravel = (city) => {
             // 🛡️ SMART AUTO-TUNE (Sticky Logic)
             if (finalStations.length > 0) {
                 setCurrentStation(prev => {
-                    // Check if the currently playing station matches the country we just loaded.
-                    const isSameCountry = prev && (
+                    // 1. If we have no previous station, just play the first new one
+                    if (!prev) return finalStations[0];
+
+                    // 2. VIP CHECK: If the current station was loaded via Deep Link or is a user favorite,
+                    // we must not overwrite it just because we re-fetched the list.
+                    // We check if the current station matches the country context.
+                    const isSameCountry = (
                         (prev.countrycode === currentCity.iso) || 
                         (prev.country === currentCity.country)
                     );
 
-                    // A. If it's the same country (Favorite), KEEP IT & ENSURE PLAYING
+                    // If it's valid for this location, KEEP IT.
                     if (isSameCountry) {
                         return prev; 
                     }
 
-                    // B. If we just flew here casually, Auto-Play the #1 Station
+                    // 3. Otherwise, play the #1 station for this new city
                     return finalStations[0];
                 });
             } else {
-                setCurrentStation(null);
+                // If search found nothing, do NOT kill the current station if it exists
+                // This protects deep links to obscure stations that might not appear in the top 100 search
+                setCurrentStation(prev => prev ? prev : null);
             }
 
         } catch (err) { console.error("Radio API Error:", err); }
