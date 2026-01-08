@@ -54,6 +54,14 @@ const App = () => {
     const [flyTarget, setFlyTarget] = useState(null);
     const [questsEnabled, setQuestsEnabled] = useState(false); // 👈 Off by default
 
+    // 🔗 DEEP LINK BLOCKER
+    // If a deep link is present, we start in a "Processing Link" state.
+    // This blocks the default Tashkent fetch until the link is resolved.
+    const [isProcessingDeepLink, setIsProcessingDeepLink] = useState(() => {
+        const hasStationParam = new URLSearchParams(window.location.search).has('station');
+        return hasStationParam;
+    });
+
     // 🔄 Ref to track current city for async stale checks
     const currentCityRef = useRef(currentCity);
     useEffect(() => {
@@ -454,6 +462,13 @@ const handlePassportTravel = (city) => {
     const fetchStations = async () => {
         if (!currentCity) return;
         
+        // 🛑 GATE: If we are in the middle of resolving a Deep Link, DO NOT fetch default stations yet.
+        // Wait for the Deep Link handler to finish and turn this flag off.
+        if (isProcessingDeepLink) {
+            console.log("🛑 fetchStations blocked by Deep Link Processor");
+            return;
+        }
+
         // 🔒 Capture the city we are fetching for at the START
         const cityContext = currentCity;
 
@@ -674,6 +689,68 @@ const handlePassportTravel = (city) => {
         setGameRoundData(prev => ({ ...prev, hasGuessed: true, userCorrect: false }));
     };
 
+
+    // 🚀 DEEP LINK HANDLER (Share Feature)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const stationUUID = params.get('station');
+
+        if (stationUUID) {
+            console.log("🔗 Deep Link Detected:", stationUUID);
+            
+            const fetchSharedStation = async () => {
+                setIsLoading(true); // Keep loading screen up
+                try {
+                    // Fetch specific station by UUID
+                    const resp = await fetch(`https://de1.api.radio-browser.info/json/stations/byuuid/${stationUUID}`);
+                    const data = await resp.json();
+                    
+                    if (data && data.length > 0) {
+                        const station = data[0];
+                        
+                        // 1. Set Station
+                        setCurrentStation(station);
+                        
+                        // 2. Teleport to Country/City
+                        const matchedCity = cities.find(c => 
+                            c.name === station.city || 
+                            c.country === station.country
+                        );
+
+                        if (matchedCity) {
+                            setCurrentCity(matchedCity);
+                        } else {
+                            // Create a temporary "Ghost City" 
+                            setCurrentCity({
+                                name: station.city || station.country,
+                                country: station.country,
+                                lat: station.geo_lat || 0,
+                                lng: station.geo_long || 0,
+                                iso: station.countrycode
+                            });
+                        }
+
+                        // 3. Auto-Play (User Intent is high)
+                        setIsPlaying(true);
+                        
+                        // 4. Clean URL
+                        window.history.replaceState({}, document.title, "/");
+                    }
+                } catch (err) {
+                    console.error("Failed to load shared station:", err);
+                } finally {
+                    // 🔓 UNBLOCK: Now allow normal fetching to resume
+                    setIsProcessingDeepLink(false);
+                    setIsLoading(false);
+                }
+            };
+            
+            fetchSharedStation();
+        } else {
+             // If no params, ensure we aren't blocked indefinitely
+             setIsProcessingDeepLink(false);
+        }
+    }, [cities]); // Run ONCE on mount (but wait for cities to be defined if needed, though they are static import)
 
     // --- RENDER ---
     return (
