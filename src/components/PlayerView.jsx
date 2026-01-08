@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Play, Pause, Heart, SkipForward, Volume2, VolumeX, MapPin, Trophy } from 'lucide-react';
+import { Play, Pause, Heart, SkipForward, Volume2, VolumeX, MapPin, Trophy, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { genres } from '../data/cities';
 import { useSongInfo } from '../hooks/useSongInfo';
@@ -73,6 +73,29 @@ const PlayerView = ({
         }
     }, [recentUnlock, setRecentUnlock]);
 
+    // 4. Share Station Handler
+    const handleShareStation = async () => {
+        if (!currentStation) return;
+        
+        const shareData = {
+            title: 'Passport Radio',
+            text: `Vibing to ${currentStation.name} in ${currentStation.country}! 🎧✈️`,
+            url: 'https://passportradio.netlify.app'
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                // Fallback: Copy to clipboard
+                await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+                alert("Link copied to clipboard!"); 
+            }
+        } catch (err) {
+            console.log("Share dismissed");
+        }
+    };
+
 
     return (
         <div className="w-full flex flex-col h-full px-4 overflow-hidden relative">
@@ -114,6 +137,13 @@ const PlayerView = ({
                         
                         <div className="relative group aspect-square w-full max-h-[35vh] mx-auto rounded-2xl overflow-hidden bg-black/50 mb-4 shadow-inner border border-white/5 shrink-1">
                             
+                            {/* Share Button (Top Left) */}
+                            <div className="absolute top-3 left-3 z-30">
+                                <button onClick={handleShareStation} className="bg-black/40 hover:bg-black/60 text-white/80 hover:text-passport-teal backdrop-blur-md p-2 rounded-full transition shadow-lg border border-white/10 active:scale-95">
+                                    <Share2 size={16} />
+                                </button>
+                            </div>
+
                             <div className="absolute top-3 right-3 flex items-center gap-2 z-30">
                                 {currentStation && <WeatherSystem city={currentCity} isMuted={isMuted} />}
                                 {isPlaying && (
@@ -163,9 +193,13 @@ const PlayerView = ({
                             <button onClick={toggleFavorite} className="text-white/60 hover:text-red-500 transition p-2 active:scale-95">
                                 <Heart size={24} fill={favorites.find(f => f.stationuuid === currentStation?.stationuuid) ? "currentColor" : "none"} />
                             </button>
+                            
+                            {/* Play / Pause */}
                             <button disabled={!currentStation} onClick={() => setIsPlaying(!isPlaying)} className="bg-white text-passport-dark p-4 rounded-full hover:scale-105 transition shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
                                 {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
                             </button>
+
+                            {/* Skip Button */}
                             <button onClick={() => changeStation(1)} className="text-white/60 hover:text-white transition p-2 active:scale-95"><SkipForward size={24} /></button>
                         </div>
 
