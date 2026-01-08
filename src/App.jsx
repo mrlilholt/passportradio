@@ -54,6 +54,12 @@ const App = () => {
     const [flyTarget, setFlyTarget] = useState(null);
     const [questsEnabled, setQuestsEnabled] = useState(false); // 👈 Off by default
 
+    // 🔄 Ref to track current city for async stale checks
+    const currentCityRef = useRef(currentCity);
+    useEffect(() => {
+        currentCityRef.current = currentCity;
+    }, [currentCity]);
+
     // 1. 🛡️ SAFETY FIX: Crash-proof State Initialization
     const [favorites, setFavorites] = useState(() => {
         try {
@@ -446,8 +452,11 @@ const handlePassportTravel = (city) => {
 
     // 9. Fetch Stations
     const fetchStations = async () => {
-        if (!apiServer) return;
+        if (!currentCity) return;
         
+        // 🔒 Capture the city we are fetching for at the START
+        const cityContext = currentCity;
+
         // 1. Loading State (Don't stop the music! 🎵)
         setIsLoading(true);
         // setStations([]); // <--- DELETED (Prevents UI flashing)
@@ -459,6 +468,15 @@ const handlePassportTravel = (city) => {
 
             const response = await fetch(`${apiServer}/json/stations/search?${params}`);
             let data = await response.json();
+            
+            // 🛑 STALE CHECK: If the user changed cities while we were fetching (e.g. via Deep Link),
+            // ABORT this update so we don't overwrite the new city's state.
+            if (cityContext.name !== currentCityRef.current.name) {
+                console.log("🚫 Stale fetch ignored for:", cityContext.name);
+                setIsLoading(false);
+                return;
+            }
+
             let validStations = data.filter(s => s.url_resolved && s.url_resolved.startsWith('https'));
 
             validStations.sort((a, b) => {
