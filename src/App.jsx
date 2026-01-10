@@ -756,15 +756,19 @@ const handlePassportTravel = (city) => {
     useEffect(() => {
         if ('mediaSession' in navigator && currentStation) {
             
-            // 1. UPDATE METADATA (What shows on the screen)
+            // 1. UPDATE METADATA (What shows on the screen for cars)
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: currentStation.name || "Passport Radio",
                 artist: `${currentStation.city || 'Unknown City'}, ${currentStation.country || 'Global'}`,
                 album: "Live Broadcast",
                 artwork: [
+                    // 1. Try the Station Icon (Label it as 96x96 to help phone decide)
                     { src: currentStation.favicon, sizes: '96x96', type: 'image/png' },
-                    { src: currentStation.favicon, sizes: '128x128', type: 'image/png' },
-                    { src: currentStation.favicon, sizes: '512x512', type: 'image/png' },
+                    
+                    // 2. CRITICAL: Add your high-res App Logo as a fallback/primary for big screens
+                    // (Ensure logo512.png exists in your public folder - it usually does in React apps)
+                    { src: '/logo512.png', sizes: '512x512', type: 'image/png' },
+                    { src: '/logo192.png', sizes: '192x192', type: 'image/png' }
                 ]
             });
 
