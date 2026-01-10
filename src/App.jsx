@@ -752,6 +752,37 @@ const handlePassportTravel = (city) => {
         }
     }, [cities]); // Run ONCE on mount (but wait for cities to be defined if needed, though they are static import)
 
+    // 🚗 MEDIA SESSION API (Bluetooth / Android Auto Metadata)
+    useEffect(() => {
+        if ('mediaSession' in navigator && currentStation) {
+            
+            // 1. UPDATE METADATA (What shows on the screen)
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: currentStation.name || "Passport Radio",
+                artist: `${currentStation.city || 'Unknown City'}, ${currentStation.country || 'Global'}`,
+                album: "Live Broadcast",
+                artwork: [
+                    { src: currentStation.favicon, sizes: '96x96', type: 'image/png' },
+                    { src: currentStation.favicon, sizes: '128x128', type: 'image/png' },
+                    { src: currentStation.favicon, sizes: '512x512', type: 'image/png' },
+                ]
+            });
+
+            // 2. BIND CONTROLS (What the buttons do)
+            navigator.mediaSession.setActionHandler('play', () => {
+                audioRef.current?.play();
+                // We rely on the audio tag's onPlay event to update state
+            });
+            navigator.mediaSession.setActionHandler('pause', () => {
+                audioRef.current?.pause();
+                // We rely on the audio tag's onPause event to update state
+            });
+            navigator.mediaSession.setActionHandler('nexttrack', () => changeStation(1));
+            navigator.mediaSession.setActionHandler('previoustrack', () => changeStation(-1));
+            navigator.mediaSession.setActionHandler('stop', () => audioRef.current?.pause());
+        }
+    }, [currentStation]);
+
     // --- RENDER ---
     return (
         <div className="relative h-[100dvh] bg-passport-dark text-white font-sans overflow-hidden flex flex-col">
@@ -949,7 +980,14 @@ const handlePassportTravel = (city) => {
                     </button>
                 </div>
             </nav>
-            <audio ref={audioRef} src={currentStation?.url_resolved} onError={(e) => { console.log("Stream failed:", e); changeStation(1); }} onEnded={() => changeStation(1)} />
+                <audio 
+                    ref={audioRef} 
+                    src={currentStation?.url_resolved} 
+                    onError={(e) => { console.log("Stream failed:", e); changeStation(1); }} 
+                    onEnded={() => changeStation(1)} 
+                    onPlay={() => setIsPlaying(true)}   // 👈 NEW: Syncs UI if car starts play
+                    onPause={() => setIsPlaying(false)} // 👈 NEW: Syncs UI if car pauses
+                />
             
             {/* ✈️ ANIMATION OVERLAY */}
               {isFlying && flyTarget && (
