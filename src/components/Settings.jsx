@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const Settings = ({ userHome, setUserHome, onClose, localDataForSync }) => {
     const { user, login, logout } = useAuth();
     // Parse current home safely for the "Badge" display
+    const [showDonation, setShowDonation] = useState(false);
     // Parse current home safely for the "Badge" display
     const currentHomeDisplay = (() => {
         if (!userHome) return null;
@@ -256,6 +257,7 @@ const Settings = ({ userHome, setUserHome, onClose, localDataForSync }) => {
                 <hr className="border-white/10" />
 
                 {/* Support Section */}
+                {/* Support Section */}
                 <section>
                     <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
                         <Heart size={18} className="text-passport-pink" /> Support the Project
@@ -263,15 +265,37 @@ const Settings = ({ userHome, setUserHome, onClose, localDataForSync }) => {
                     <p className="text-sm text-white/60 mb-4">
                         Passport Radio is a free project.
                     </p>
-                    <a 
-                        href="https://ko-fi.com/lilholtmakes" 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="flex items-center justify-center gap-2 bg-[#FF5E5B] text-white font-bold py-3 rounded-xl hover:bg-[#ff7572] transition shadow-lg hover:shadow-red-500/20"
-                    >
-                        <Heart size={18} fill="currentColor" />
-                        Buy me a Coffee
-                    </a>
+
+                    {!showDonation ? (
+                        /* STATE A: The Button (What you have now) */
+                        <button 
+                            onClick={() => setShowDonation(true)}
+                            className="w-full flex items-center justify-center gap-2 bg-[#FF5E5B] text-white font-bold py-3 rounded-xl hover:bg-[#ff7572] transition shadow-lg hover:shadow-red-500/20"
+                        >
+                            <Heart size={18} fill="currentColor" />
+                            Buy me a Coffee
+                        </button>
+                    ) : (
+                        /* STATE B: The Embedded Payment Form */
+                        <div className="relative animate-fade-in bg-white rounded-xl overflow-hidden h-[600px]">
+                            
+                            {/* Close Button */}
+                            <button 
+                                onClick={() => setShowDonation(false)}
+                                className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/80 text-white p-1 rounded-full transition"
+                            >
+                                <X size={16} />
+                            </button>
+
+                            {/* The Magic Ko-Fi Embed */}
+                            <iframe 
+                                id='kofiframe' 
+                                src='https://ko-fi.com/lilholtmakes/?hidefeed=true&widget=true&embed=true&preview=true' 
+                                className="w-full h-full border-none"
+                                title='lilholtmakes'
+                            ></iframe>
+                        </div>
+                    )}
                 </section>
                 
                 <div className="text-center text-xs text-white/30 pt-8 pb-4">
